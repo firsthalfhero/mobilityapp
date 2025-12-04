@@ -7,12 +7,55 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
 
-    <!-- All body content from before -->
-    
+    <!-- Sign-in View -->
+    <div id="sign-in-view" class="absolute inset-0 bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center z-50 p-8">
+        <h1 class="text-3xl font-extrabold text-cyan-600 dark:text-cyan-400">Physio Mobility App</h1>
+        <p class="text-gray-600 dark:text-gray-300 mt-2 mb-8">Sign in to sync your program across devices.</p>
+        <button onclick="signInWithGoogle()" class="bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-shadow flex items-center">
+            <svg class="w-6 h-6 mr-3" viewBox="0 0 48 48"><path fill="#4285F4" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#34A853" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#FBBC05" d="M27.463 44.309l-6.571-4.819C19.055 40.892 14.74 44 9.6 44c-5.145 0-9.45-3.108-11.48-7.539l-6.571 4.819C4.955 43.079 10.955 48 18 48c6.045 0 11.045-3.921 13.463-9.691z"></path><path fill="#EA4335" d="M43.611 20.083H24v8h11.303c-.792 2.237-2.231 4.16-4.082 5.571l6.571 4.819c3.93-3.639 6.209-8.882 6.209-14.39 0-1.341-.138-2.65-.389-3.917z"></path></svg>
+            Sign in with Google
+        </button>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="main-app-container" style="display: none;" class="min-h-screen max-w-lg mx-auto bg-gray-50 dark:bg-gray-800 shadow-xl">
+        <header class="p-4 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700 sticky top-0 z-10">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-extrabold text-cyan-600 dark:text-cyan-400">Physio Mobility App</h1>
+                <button id="sign-out-btn" style="display: none;" onclick="signOutUser()" class="text-sm font-medium text-cyan-600 dark:text-cyan-400 hover:underline">Sign Out</button>
+            </div>
+            <p id="loading-message" class="text-xs text-gray-500 dark:text-gray-400 mt-1">Initializing app...</p>
+        </header>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="absolute inset-0 bg-gray-50 dark:bg-gray-800 bg-opacity-90 flex flex-col items-center justify-center z-50" style="display: none;">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 dark:border-cyan-400"></div>
+            <p class="mt-4 text-gray-700 dark:text-gray-300">Loading data...</p>
+        </div>
+
+        <main class="p-4 pb-20">
+            <!-- Tab Headers -->
+            <div class="tab-header flex justify-around border-b dark:border-gray-700 mb-4 bg-gray-50 dark:bg-gray-800 sticky top-16 z-10">
+                <button class="py-3 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400 flex-1 transition-colors" onclick="switchTab('my-program')">My Program</button>
+                <button class="py-3 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400 flex-1 transition-colors" onclick="switchTab('log-workout-tab')">Log Workout</button>
+                <button class="py-3 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400 flex-1 transition-colors" onclick="switchTab('history-tab')">History</button>
+            </div>
+
+            <!-- Tab Content will be rendered here by JS -->
+            <div id="my-program" class="tab-content"></div>
+            <div id="program-detail" class="tab-content"></div>
+            <div id="log-workout-tab" class="tab-content"></div>
+            <div id="add-exercise-tab" class="tab-content"></div>
+            <div id="history-tab" class="tab-content"></div>
+        </main>
+
+        <!-- Fixed Message Box -->
+        <div id="message-box" class="fixed bottom-20 opacity-0 transition-all duration-300 p-3 rounded-xl shadow-2xl z-50"></div>
+    </div>
+
     <script type="module" src="js/app.js"></script>
 </body>
+</html>
