@@ -158,7 +158,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         <div class="flex-grow cursor-pointer" onclick="handleEditExercise('${exercise.Exercise_ID}')">
                             <div class="flex justify-between items-start mb-1">
                                 <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
-                                <span class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full font-semibold uppercase tracking-wide mr-2">${exercise.Focus_Area || 'General'}</span>
+                                <span class="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-[10px] px-2 py-0.5 rounded-md font-medium uppercase tracking-wider mr-2 text-center min-w-[60px]">${exercise.Focus_Area || 'General'}</span>
                             </div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">${exercise.Physio_Notes || 'No notes available.'}</p>
                         </div>
