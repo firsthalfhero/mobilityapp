@@ -292,8 +292,128 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         window.openLogForm = openLogForm;
 
         /**
+         * Handles the deletion of the currently viewed exercise and all its logs.
+         */
+        async function handleDeleteExercise() {
+            if (!currentExerciseId) {
+                showMessage("No exercise selected.", 'error');
+                return;
+            }
+
+            const exerciseToDelete = exercises.find(e => e.Exercise_ID === currentExerciseId);
+            if (!exerciseToDelete) {
+                showMessage("Could not find the exercise to delete.", 'error');
+                return;
+            }
+
+            if (confirm(`Are you sure you want to permanently delete "${exerciseToDelete.Name}" and all of its logged history? This cannot be undone.`)) {
+                try {
+                    const batch = writeBatch(db);
+
+                    // 1. Find and delete all related logs
+                    const logsPath = getPrivateCollectionPath('logs');
+                    const q = query(collection(db, logsPath), where("Exercise_ID", "==", currentExerciseId));
+                    const logsSnapshot = await getDocs(q);
+                    logsSnapshot.forEach(logDoc => {
+                        batch.delete(logDoc.ref);
+                    });
+
+                    // 2. Delete the main exercise document
+                    const exerciseDocRef = doc(db, getPrivateCollectionPath('exercises'), currentExerciseId);
+                    batch.delete(exerciseDocRef);
+
+                    // 3. Commit the batch
+                    await batch.commit();
+
+                    showMessage(`"${exerciseToDelete.Name}" was deleted.`, 'success');
+                    window.switchTab('my-program');
+
+                } catch (error) {
+                    console.error("Error deleting exercise: ", error);
+                    showMessage("Failed to delete exercise. Check console.", 'error');
+                }
+            }
+        }
+        // Expose globally
+        window.handleDeleteExercise = handleDeleteExercise;
+
+        /**
+         * Handles the submission of the workout log form.
+         * @param {Event} event - The form submit event.
+         */
+        async function handleLogSubmission(event) {
+            event.preventDefault();
+            
+            if (!userId) {
+                showMessage("App not fully authenticated. Please wait a moment and try again.", 'error');
+                return;
+            }
+            if (!currentExerciseId) {
+                 showMessage("Error: No exercise selected.", 'error');
+                 return;
+            }
+
+            const form = event.target;
+            const logData = {
+                Exercise_ID: currentExerciseId,
+                Date: new Date(),
+                Variation: form['Variation'].value.trim(), // Add variation
+                Actual_Sets: parseInt(form['Actual_Sets'].value, 10),
+                Actual_Reps: form['Actual_Reps'].value.trim(),
+                Weight_Used: form['Weight_Used'].value.trim(),
+                Subjective_Feeling: parseInt(form['Subjective_Feeling'].value, 10),
+                Pain_Level: parseInt(form['Pain_Level'].value, 10),
+                Comments: form['Comments'].value.trim(),
+            };
+            
+            if (isNaN(logData.Actual_Sets) || logData.Actual_Sets <= 0) {
+                showMessage("Please enter a valid number of sets.", 'error');
+                return;
+            }
+            if (!logData.Actual_Reps) {
+                showMessage("Please enter the reps/duration performed.", 'error');
+                return;
+            }
+
+            try {
+                const logsCollectionRef = collection(db, getPrivateCollectionPath('logs'));
+                await addDoc(logsCollectionRef, logData);
+
+                showMessage("Workout logged successfully!", 'success');
+                form.reset();
+                // After logging, switch back to the main program view (which will refresh logs)
+                window.switchTab('my-program'); 
+            } catch (error) {
+                console.error("Error writing document: ", error);
+                showMessage("Failed to log workout. Check console for details.", 'error');
+            }
+        }
+
+        /**
+         * Displays a temporary message box to the user.
+         * @param {string} message - The message content.
+         * @param {string} type - 'success' or 'error'.
+         */
+        function showMessage(message, type) {
+            const box = document.getElementById('message-box');
+            box.textContent = message;
+            box.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 p-3 rounded-xl shadow-2xl z-50 transition-all duration-300';
+            
+            if (type === 'success') {
+                box.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                box.classList.add('bg-red-500', 'text-white');
+            }
+            
+            box.style.opacity = '1';
+
+            setTimeout(() => {
+                box.style.opacity = '0';
+            }, 3000);
+        }
+
+        /**
          * Switches view to the Add/Edit Exercise form.
-         * @param {object|null} exerciseToEdit - The exercise object if editing, or null if adding new.
          */
         function openAddExerciseForm(exerciseToEdit = null) {
             const form = document.getElementById('add-exercise-form');
