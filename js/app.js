@@ -90,51 +90,41 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             container.innerHTML = '';
             
-            // NOTE: The `exercises` array is now pre-sorted by the Firestore query
-            const groupedExercises = exercises.reduce((acc, exercise) => {
-                const area = exercise.Focus_Area || 'Uncategorized';
-                if (!acc[area]) {
-                    acc[area] = [];
-                }
-                acc[area].push(exercise);
-                return acc;
-            }, {});
-
-            let overallIndex = 0;
-            for (const area in groupedExercises) {
-                const areaDiv = document.createElement('div');
-                areaDiv.className = 'mb-6';
-                areaDiv.innerHTML = `<h2 class="text-xl font-bold text-gray-700 dark:text-gray-300 mb-3 border-b dark:border-gray-600 pb-1">${area}</h2>`;
-
-                groupedExercises[area].forEach(exercise => {
-                    const isFirst = overallIndex === 0;
-                    const isLast = overallIndex === exercises.length - 1;
-
-                    const card = document.createElement('div');
-                    card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-2`; // Reduced margin
-                    card.setAttribute('data-id', exercise.Exercise_ID);
-                    
-                    card.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <div class="flex-grow cursor-pointer" onclick="showExerciseDetail(exercises.find(e => e.Exercise_ID === '${exercise.Exercise_ID}'))">
-                                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${exercise.Physio_Notes ? exercise.Physio_Notes.substring(0, 80) + '...' : 'No detailed notes.'}</p>
-                            </div>
-                            <div class="flex flex-col items-center space-y-2 ml-3">
-                                <button ${isFirst ? 'disabled' : ''} onclick="moveExercise('${exercise.Exercise_ID}', 'up')" class="p-1 rounded-full bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
-                                    <svg class="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                                </button>
-                                <button ${isLast ? 'disabled' : ''} onclick="moveExercise('${exercise.Exercise_ID}', 'down')" class="p-1 rounded-full bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 disabled:opacity-30 disabled:cursor-not-allowed">
-                                    <svg class="w-5 h-5 text-gray-700 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    areaDiv.appendChild(card);
-                    overallIndex++;
-                });
-                container.appendChild(areaDiv);
+            if (exercises.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-8">No exercises added yet.</p>';
+                return;
             }
+
+            // Render flat list
+            exercises.forEach((exercise, index) => {
+                const isFirst = index === 0;
+                const isLast = index === exercises.length - 1;
+
+                const card = document.createElement('div');
+                card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-4`; 
+                card.setAttribute('data-id', exercise.Exercise_ID);
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex-grow cursor-pointer" onclick="showExerciseDetail(exercises.find(e => e.Exercise_ID === '${exercise.Exercise_ID}'))">
+                            <div class="flex justify-between items-start mb-1">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
+                                <span class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full font-semibold uppercase tracking-wide mr-2">${exercise.Focus_Area || 'General'}</span>
+                            </div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">${exercise.Physio_Notes || 'No notes available.'}</p>
+                        </div>
+                        <div class="flex flex-col items-center space-y-2 ml-3 border-l dark:border-gray-600 pl-3">
+                            <button ${isFirst ? 'disabled' : ''} onclick="moveExercise('${exercise.Exercise_ID}', 'up')" class="p-1 rounded-full bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-cyan-600 dark:text-cyan-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                            </button>
+                            <button ${isLast ? 'disabled' : ''} onclick="moveExercise('${exercise.Exercise_ID}', 'down')" class="p-1 rounded-full bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-cyan-600 dark:text-cyan-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
         }
 
         /**
@@ -173,6 +163,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             // Switch to detail tab
             window.switchTab('program-detail');
         }
+        // Expose globally
+        window.showExerciseDetail = showExerciseDetail;
 
         /**
          * Renders the last 5 logs for the current exercise.
