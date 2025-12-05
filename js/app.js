@@ -39,6 +39,54 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         let sessionLogs = [];
         let currentExerciseId = null;
 
+        // --- Dashboard Logic ---
+
+        function getStartOfWeek() {
+            const now = new Date();
+            const day = now.getDay(); // 0 (Sun) to 6 (Sat)
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+            const monday = new Date(now);
+            monday.setDate(diff);
+            monday.setHours(0, 0, 0, 0);
+            return monday;
+        }
+
+        function renderWeeklyActivity() {
+            const container = document.getElementById('weekly-activity-content');
+            if (!container) return;
+
+            const startOfWeek = getStartOfWeek();
+            const weeklyLogs = sessionLogs.filter(log => log.Date.toDate() >= startOfWeek);
+
+            if (weeklyLogs.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 italic text-center">New week, let\'s hit the gym!</p>';
+                return;
+            }
+
+            // Summarize: Group by day
+            const activityByDay = {};
+            // Sort logs by date ascending for the summary
+            weeklyLogs.sort((a, b) => a.Date.toDate() - b.Date.toDate());
+
+            weeklyLogs.forEach(log => {
+                const date = log.Date.toDate().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                if (!activityByDay[date]) activityByDay[date] = 0;
+                activityByDay[date]++; // Count sets
+            });
+
+            let html = '<ul class="space-y-2">';
+            for (const [day, count] of Object.entries(activityByDay)) {
+                html += `
+                    <li class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
+                        <span class="font-medium text-gray-700 dark:text-gray-200">${day}</span>
+                        <span class="text-sm text-cyan-600 dark:text-cyan-400 font-bold">${count} Sets Logged</span>
+                    </li>
+                `;
+            }
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+
         /**
          * Moves an exercise up or down in the order.
          * @param {string} exerciseId - The ID of the exercise to move.
@@ -542,8 +590,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     exercises = snapshot.docs.map(doc => ({ Exercise_ID: doc.id, ...doc.data() }));
                     renderExercises();
                     renderWorkoutForm(); // Render the new workout form
-                    document.getElementById('loading-overlay').style.display = 'none';
-                    window.switchTab('my-program'); // Ensure we land on the main view
+                    
+                    // If loading overlay is visible, this is likely the initial load
+                    const overlay = document.getElementById('loading-overlay');
+                    if (overlay && overlay.style.display !== 'none') {
+                        overlay.style.display = 'none';
+                        window.switchTab('dashboard-tab'); 
+                    }
                 }, (error) => {
                     console.error("Error fetching exercises:", error);
                     showMessage("Failed to load exercise list.", 'error');
@@ -562,11 +615,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     }
                     // Re-render the overall history chart
                     renderHistoryChart();
+                    // Re-render weekly activity
+                    renderWeeklyActivity();
                 }, (error) => {
                     console.error("Error fetching session logs:", error);
                     showMessage("Failed to load session history.", 'error');
                 });
             }
+            
+            // Default to Dashboard
+            window.switchTab('dashboard-tab');
             
             // NOTE: Progression Metrics table listener could be added here if needed for a separate view/log.
         }
