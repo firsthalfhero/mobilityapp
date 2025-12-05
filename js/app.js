@@ -146,9 +146,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             document.getElementById('detail-title').textContent = exercise.Name;
             document.getElementById('detail-focus').textContent = exercise.Focus_Area;
             document.getElementById('detail-sets-reps').textContent = `${exercise.Target_Sets} sets of ${exercise.Target_Reps}`;
-            document.getElementById('detail-weight').textContent = `Initial Weight/Resistance: ${exercise.Weight_Used_Initial || 'N/A'}`;
-            document.getElementById('detail-instructions').textContent = exercise.Instructions || 'No detailed instructions provided.';
-            document.getElementById('detail-notes').textContent = exercise.Physio_Notes || 'No notes.';
+            document.getElementById('detail-weight').textContent = exercise.Weight_Used_Initial || 'Bodyweight/None';
+            
+            // Consolidated notes/instructions
+            const notesContent = exercise.Physio_Notes || 'No specific notes provided.';
+            document.getElementById('detail-notes').textContent = notesContent;
 
             const videoContainer = document.getElementById('detail-video-container');
             if (exercise.Video_Link && exercise.Video_Link.trim() !== '') {
