@@ -77,7 +77,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             let html = '<ul class="space-y-2">';
             for (const [day, count] of Object.entries(activityByDay)) {
                 html += `
-                    <li class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-600 rounded-lg">
+                    <li onclick="switchTab('history-tab')" class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-600 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors">
                         <span class="font-medium text-gray-700 dark:text-gray-200">${day}</span>
                         <span class="text-sm text-cyan-600 dark:text-cyan-400 font-bold">${count} Sets Logged</span>
                     </li>
@@ -636,6 +636,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     const overlay = document.getElementById('loading-overlay');
                     if (overlay && overlay.style.display !== 'none') {
                         overlay.style.display = 'none';
+                        document.getElementById('loading-message').textContent = ''; // Clear loading text
                         window.switchTab('dashboard-tab'); 
                     }
                 }, (error) => {
