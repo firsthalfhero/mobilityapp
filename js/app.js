@@ -859,8 +859,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 for (const exName in exercisesInSession) {
                     const sets = exercisesInSession[exName].sort((a, b) => a.SetNumber - b.SetNumber);
                     exerciseHtml += `
-                        <div class="mt-3">
-                            <h4 class="font-bold text-gray-700 dark:text-gray-200">${exName}</h4>
+                        <div class="mt-3 border-b border-gray-100 dark:border-gray-600 pb-2 last:border-0">
+                            <h4 class="font-bold text-gray-700 dark:text-gray-200 text-sm">${exName}</h4>
                             <ul class="text-sm text-gray-600 dark:text-gray-300 mt-1 space-y-1 pl-2">
                                 ${sets.map(set => `
                                     <li class="flex justify-between">
@@ -869,7 +869,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                                             <span class="text-gray-500 dark:text-gray-400">@ ${set.Weight_Used || '0'}</span>
                                             ${set.Variation ? `<span class="text-cyan-600 dark:text-cyan-400">(${set.Variation})</span>` : ''}
                                         </span>
-                                        <span class="text-red-500 dark:text-red-400">Pain: ${set.Pain_Level}</span>
                                     </li>
                                 `).join('')}
                             </ul>
@@ -878,13 +877,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
 
                 return `
-                    <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md border-l-4 border-cyan-500 dark:border-cyan-400 mb-4">
-                        <div class="flex justify-between items-center mb-2 border-b dark:border-gray-600 pb-2">
-                            <h3 class="font-bold text-gray-800 dark:text-gray-100">${dateStr}</h3>
-                            <span class="text-sm text-gray-500 dark:text-gray-400">${timeStr}</span>
+                    <details class="bg-white dark:bg-gray-700 rounded-xl shadow-md border-l-4 border-cyan-500 dark:border-cyan-400 mb-4 overflow-hidden group">
+                        <summary class="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none">
+                            <div>
+                                <h3 class="font-bold text-gray-800 dark:text-gray-100 text-base">${dateStr}</h3>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">${timeStr}</span>
+                            </div>
+                            <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </summary>
+                        <div class="p-4 pt-0 bg-white dark:bg-gray-700">
+                            ${exerciseHtml}
                         </div>
-                        ${exerciseHtml}
-                    </div>
+                    </details>
                 `;
             }).join('');
         }
