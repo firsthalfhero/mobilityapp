@@ -59,7 +59,47 @@
                     &larr; Cancel
                 </button>
                 <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Create New Exercise</h2>
-                <form id="add-exercise-form" class="space-y-4"></form>
+                <form id="add-exercise-form" class="space-y-4">
+                    <!-- Name -->
+                    <div>
+                        <label for="ex-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Exercise Name</label>
+                        <input type="text" id="ex-name" name="Name" required class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="e.g., Cat-Cow">
+                    </div>
+                    <!-- Focus Area -->
+                    <div>
+                        <label for="ex-focus-area" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Focus Area</label>
+                        <input type="text" id="ex-focus-area" name="Focus_Area" required class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="e.g., Neck/Spine">
+                    </div>
+                    <!-- Target Sets -->
+                    <div>
+                        <label for="ex-target-sets" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Target Sets</label>
+                        <input type="number" id="ex-target-sets" name="Target_Sets" min="1" required class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="e.g., 3">
+                    </div>
+                    <!-- Target Reps -->
+                    <div>
+                        <label for="ex-target-reps" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Target Reps or Duration</label>
+                        <input type="text" id="ex-target-reps" name="Target_Reps" required class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="e.g., 10 reps or 45 seconds">
+                    </div>
+                    <!-- Initial Weight -->
+                    <div>
+                        <label for="ex-weight-initial" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Initial Weight / Resistance</label>
+                        <input type="text" id="ex-weight-initial" name="Weight_Used_Initial" class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="e.g., Bodyweight or 9kg">
+                    </div>
+                    <!-- Video Link -->
+                    <div>
+                        <label for="ex-video-link" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Video Link (Optional)</label>
+                        <input type="url" id="ex-video-link" name="Video_Link" class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="https://youtube.com/watch?v=...">
+                    </div>
+                    <!-- Physio Notes -->
+                    <div>
+                        <label for="ex-physio-notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Physio Notes / Instructions</label>
+                        <textarea id="ex-physio-notes" name="Physio_Notes" rows="4" class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="Describe the movement, cues, and progression."></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white text-lg font-bold py-3 rounded-xl shadow-lg">
+                        Save Exercise
+                    </button>
+                </form>
             </div>
 
             <div id="history-tab" class="tab-content">
