@@ -152,10 +152,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-4`; 
                 card.setAttribute('data-id', exercise.Exercise_ID);
                 
-                // Changed onclick to open edit form
+                // Changed onclick to use global handler with ID
                 card.innerHTML = `
                     <div class="flex justify-between items-center">
-                        <div class="flex-grow cursor-pointer" onclick="openAddExerciseForm(exercises.find(e => e.Exercise_ID === '${exercise.Exercise_ID}'))">
+                        <div class="flex-grow cursor-pointer" onclick="handleEditExercise('${exercise.Exercise_ID}')">
                             <div class="flex justify-between items-start mb-1">
                                 <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
                                 <span class="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full font-semibold uppercase tracking-wide mr-2">${exercise.Focus_Area || 'General'}</span>
@@ -175,8 +175,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 container.appendChild(card);
             });
         }
-
-        // ... (showExerciseDetail function removed or kept but unused) ...
+        
+        /**
+         * Global handler to open edit form from HTML onclick
+         * @param {string} exerciseId 
+         */
+        function handleEditExercise(exerciseId) {
+            const exercise = exercises.find(e => e.Exercise_ID === exerciseId);
+            if (exercise) {
+                openAddExerciseForm(exercise);
+            }
+        }
+        window.handleEditExercise = handleEditExercise;
 
         /**
          * Switches view to the Add/Edit Exercise form.
