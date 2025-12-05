@@ -88,48 +88,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
 
         /**
-         * Moves an exercise up or down in the order.
-         * @param {string} exerciseId - The ID of the exercise to move.
-         * @param {'up' | 'down'} direction - The direction to move.
-         */
-        async function moveExercise(exerciseId, direction) {
-            // Stop the click from propagating to the card's navigation handler
-            event.stopPropagation();
-
-            const currentIndex = exercises.findIndex(e => e.Exercise_ID === exerciseId);
-            if (currentIndex === -1) return;
-
-            const adjacentIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (adjacentIndex < 0 || adjacentIndex >= exercises.length) return;
-
-            const exerciseToMove = exercises[currentIndex];
-            const adjacentExercise = exercises[adjacentIndex];
-
-            // Swap the 'order' values
-            const order1 = exerciseToMove.order;
-            const order2 = adjacentExercise.order;
-
-            try {
-                const batch = writeBatch(db);
-                const exercisesPath = getPrivateCollectionPath('exercises');
-                
-                const ref1 = doc(db, exercisesPath, exerciseToMove.Exercise_ID);
-                batch.update(ref1, { order: order2 });
-
-                const ref2 = doc(db, exercisesPath, adjacentExercise.Exercise_ID);
-                batch.update(ref2, { order: order1 });
-
-                await batch.commit();
-                // Real-time listener will handle the UI update
-            } catch (error) {
-                console.error("Error reordering exercises: ", error);
-                showMessage("Failed to reorder exercises.", 'error');
-            }
-        }
-        // Expose globally
-        window.moveExercise = moveExercise;
-
-        /**
          * Renders the list of exercises in the My Program tab.
          */
         function renderExercises() {
@@ -145,34 +103,57 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             // Render flat list
             exercises.forEach((exercise, index) => {
-                const isFirst = index === 0;
-                const isLast = index === exercises.length - 1;
-
                 const card = document.createElement('div');
-                card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-4`; 
+                // Added cursor-move to indicate draggable
+                card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-4 cursor-move`; 
                 card.setAttribute('data-id', exercise.Exercise_ID);
                 
-                // Changed onclick to use global handler with ID
                 card.innerHTML = `
                     <div class="flex justify-between items-center">
-                        <div class="flex-grow cursor-pointer" onclick="handleEditExercise('${exercise.Exercise_ID}')">
+                        <div class="flex-grow" onclick="handleEditExercise('${exercise.Exercise_ID}')">
                             <div class="flex justify-between items-start mb-1">
                                 <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
                                 <span class="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-[10px] px-2 py-0.5 rounded-md font-medium uppercase tracking-wider mr-2 text-center min-w-[60px]">${exercise.Focus_Area || 'General'}</span>
                             </div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">${exercise.Physio_Notes || 'No notes available.'}</p>
                         </div>
-                        <div class="flex flex-col items-center space-y-2 ml-3 border-l dark:border-gray-600 pl-3">
-                            <button ${isFirst ? 'disabled' : ''} onclick="moveExercise('${exercise.Exercise_ID}', 'up')" class="p-1 rounded-full bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-cyan-600 dark:text-cyan-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                            </button>
-                            <button ${isLast ? 'disabled' : ''} onclick="moveExercise('${exercise.Exercise_ID}', 'down')" class="p-1 rounded-full bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-cyan-600 dark:text-cyan-400">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                        </div>
                     </div>
                 `;
                 container.appendChild(card);
+            });
+
+            // Initialize Sortable
+            if (window.sortableInstance) window.sortableInstance.destroy();
+            window.sortableInstance = new Sortable(container, {
+                animation: 150,
+                handle: '.card', // Draggable by the whole card
+                delay: 100, // Slight delay to prevent accidental drags when tapping to edit
+                onEnd: async function (evt) {
+                    const newIndex = evt.newIndex;
+                    const oldIndex = evt.oldIndex;
+                    
+                    if (newIndex === oldIndex) return;
+
+                    // Reorder local array
+                    const movedItem = exercises.splice(oldIndex, 1)[0];
+                    exercises.splice(newIndex, 0, movedItem);
+
+                    // Batch update Firestore
+                    try {
+                        const batch = writeBatch(db);
+                        const exercisesPath = getPrivateCollectionPath('exercises');
+                        
+                        exercises.forEach((ex, index) => {
+                            const ref = doc(db, exercisesPath, ex.Exercise_ID);
+                            batch.update(ref, { order: index }); // Simple sequential ordering
+                        });
+                        
+                        await batch.commit();
+                    } catch (error) {
+                        console.error("Error saving order:", error);
+                        showMessage("Failed to save new order.", "error");
+                    }
+                }
             });
         }
         
