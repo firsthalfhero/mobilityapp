@@ -305,3 +305,364 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 showMessage("Failed to save exercise. Check console.", 'error');
             }
         }
+
+        // --- Firebase Authentication and Initialization ---
+
+        /**
+         * Initiates the Google Sign-In popup flow.
+         */
+        function signInWithGoogle() {
+            const provider = new GoogleAuthProvider();
+            signInWithPopup(auth, provider)
+                .then((result) => {
+                    // This will trigger the onAuthStateChanged listener
+                    console.log("Sign-in successful for:", result.user.displayName);
+                }).catch((error) => {
+                    console.error("Google Sign-In Error:", error);
+                    showMessage(`Sign-in failed: ${error.message}`, 'error');
+                });
+        }
+        window.signInWithGoogle = signInWithGoogle;
+
+        /**
+         * Signs the current user out.
+         */
+        function signOutUser() {
+            if (confirm("Are you sure you want to sign out?")) {
+                signOut(auth).catch((error) => {
+                    console.error("Sign-Out Error:", error);
+                    showMessage(`Sign-out failed: ${error.message}`, 'error');
+                });
+            }
+        }
+        window.signOutUser = signOutUser;
+
+        async function initializeFirebase() {
+            // --- New check for valid Firebase config ---
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                document.getElementById('sign-in-view').innerHTML = '<p class="text-red-500">Firebase configuration is missing. App cannot start.</p>';
+                document.getElementById('sign-in-view').style.display = 'flex';
+                document.getElementById('loading-overlay').style.display = 'none';
+                return;
+            }
+            // --- End of new check ---
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, async (user) => {
+                    const signInView = document.getElementById('sign-in-view');
+                    const mainAppContainer = document.getElementById('main-app-container');
+                    const signOutBtn = document.getElementById('sign-out-btn');
+                    const loadingOverlay = document.getElementById('loading-overlay');
+
+                    if (user) {
+                        // User is signed in
+                        userId = user.uid;
+                        console.log("Firebase Auth successful. User ID:", userId);
+                        
+                        signInView.style.display = 'none';
+                        mainAppContainer.style.display = 'block';
+                        signOutBtn.style.display = 'block';
+                        loadingOverlay.style.display = 'flex';
+                        document.getElementById('loading-message').textContent = `Welcome, ${user.displayName || 'user'}! Loading data...`;
+
+                        setupRealtimeListeners();
+                    } else {
+                        // User is signed out
+                        userId = null;
+                        console.log("No user signed in.");
+
+                        // Reset app state
+                        exercises = [];
+                        sessionLogs = [];
+                        renderExercises(); // Clear lists
+                        renderHistoryChart();
+
+                        loadingOverlay.style.display = 'none';
+                        mainAppContainer.style.display = 'none';
+                        signOutBtn.style.display = 'none';
+                        signInView.style.display = 'flex';
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                document.getElementById('loading-message').textContent = `Init failed: ${error.message}.`;
+            }
+        }
+
+        /**
+         * Sets up real-time listeners for the two main data collections.
+         */
+        function setupRealtimeListeners() {
+            if (!userId || !db) return;
+
+            // 1. Listen for Exercise changes (Master Library)
+            const exercisesPath = getPrivateCollectionPath('exercises');
+            if (exercisesPath) {
+                const q = query(collection(db, exercisesPath), orderBy("order", "asc"));
+                onSnapshot(q, (snapshot) => {
+                    exercises = snapshot.docs.map(doc => ({ Exercise_ID: doc.id, ...doc.data() }));
+                    renderExercises();
+                    renderWorkoutForm(); // Render the new workout form
+                    
+                    // If loading overlay is visible, this is likely the initial load
+                    const overlay = document.getElementById('loading-overlay');
+                    if (overlay && overlay.style.display !== 'none') {
+                        overlay.style.display = 'none';
+                        window.switchTab('dashboard-tab'); 
+                    }
+                }, (error) => {
+                    console.error("Error fetching exercises:", error);
+                    showMessage("Failed to load exercise list.", 'error');
+                });
+            }
+
+            // 2. Listen for Session Log changes (Tracking History)
+            const logsPath = getPrivateCollectionPath('logs');
+            if (logsPath) {
+                onSnapshot(collection(db, logsPath), (snapshot) => {
+                    // Convert Firestore Timestamps to JS Date objects on load for sorting
+                    sessionLogs = snapshot.docs.map(doc => ({ Log_ID: doc.id, ...doc.data() }));
+                    // If we are in the detail view, refresh the log history
+                    if (currentExerciseId) {
+                         renderRelatedLogs(currentExerciseId);
+                    }
+                    // Re-render the overall history chart
+                    renderHistoryChart();
+                    // Re-render weekly activity
+                    renderWeeklyActivity();
+                }, (error) => {
+                    console.error("Error fetching session logs:", error);
+                    showMessage("Failed to load session history.", 'error');
+                });
+            }
+            
+            // Default to Dashboard
+            window.switchTab('dashboard-tab');
+        }
+
+        function addSet(exerciseId) {
+            event.preventDefault();
+            const container = document.getElementById(`sets-container_${exerciseId}`);
+            if (!container) return;
+
+            const setCount = container.children.length + 1;
+            const newSetHtml = `
+                <div class="flex items-center space-x-2 set-row">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 w-10">Set ${setCount}</span>
+                    <input type="text" name="reps_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Reps">
+                    <input type="text" name="weight_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Weight">
+                    <input type="text" name="var_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Variation">
+                    <input type="number" name="pain_${exerciseId}" min="0" max="10" value="0" class="block w-20 rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" title="Pain (0-10)">
+                    <button type="button" onclick="removeSet(this)" class="p-2 text-red-500 hover:text-red-700 flex-shrink-0 text-xl leading-none">&times;</button>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', newSetHtml);
+        }
+        window.addSet = addSet;
+
+        function removeSet(button) {
+            event.preventDefault();
+            button.closest('.set-row').remove();
+        }
+        window.removeSet = removeSet;
+
+        function renderWorkoutForm() {
+            const container = document.getElementById('log-workout-tab');
+            if (!container) return;
+
+            const groupedExercises = exercises.reduce((acc, exercise) => {
+                const area = exercise.Focus_Area || 'Uncategorized';
+                if (!acc[area]) acc[area] = [];
+                acc[area].push(exercise);
+                return acc;
+            }, {});
+
+            let formHtml = `
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-1">Log Daily Workout</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">For each exercise, add and fill in the sets you completed. Only sets with 'Reps' filled in will be saved.</p>
+                <form id="log-workout-form">
+            `;
+
+            for (const area in groupedExercises) {
+                formHtml += `<h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mt-6 mb-3 border-b dark:border-gray-600 pb-1">${area}</h3>`;
+                
+                groupedExercises[area].forEach(exercise => {
+                    const exId = exercise.Exercise_ID;
+                    formHtml += `
+                        <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md mb-4 border-l-4 border-gray-200 dark:border-gray-600">
+                            <p class="font-bold text-gray-800 dark:text-gray-100 text-lg">${exercise.Name}</p>
+                            <div id="sets-container_${exId}" class="space-y-3 mt-3">
+                                <!-- Set 1 (Default) -->
+                                <div class="flex items-center space-x-2 set-row">
+                                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 w-10">Set 1</span>
+                                    <input type="text" name="reps_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Reps">
+                                    <input type="text" name="weight_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Weight">
+                                    <input type="text" name="var_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Variation">
+                                    <input type="number" name="pain_${exId}" min="0" max="10" value="0" class="block w-20 rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" title="Pain (0-10)">
+                                    <div class="w-8"></div> <!-- Spacer for alignment with remove button -->
+                                </div>
+                            </div>
+                            <button type="button" onclick="addSet('${exId}')" class="text-sm text-cyan-600 dark:text-cyan-400 hover:underline mt-3 font-medium">+ Add Set</button>
+                        </div>
+                    `;
+                });
+            }
+
+            formHtml += `
+                    <button type="submit" class="w-full mt-6 bg-green-500 hover:bg-green-600 text-white text-lg font-bold py-3 rounded-xl shadow-lg">
+                        Save Workout
+                    </button>
+                </form>
+            `;
+            container.innerHTML = formHtml;
+            
+            const workoutForm = document.getElementById('log-workout-form');
+            if(workoutForm) {
+                workoutForm.addEventListener('submit', handleWorkoutSubmission);
+            }
+        }
+
+        async function handleWorkoutSubmission(event) {
+            event.preventDefault();
+            if (!userId) {
+                showMessage("Authentication error. Please reload.", 'error');
+                return;
+            }
+
+            const form = event.target;
+            const batch = writeBatch(db);
+            const logsCollectionRef = collection(db, getPrivateCollectionPath('logs'));
+            let logsAttempted = 0;
+            const workoutDate = new Date();
+
+            exercises.forEach(exercise => {
+                const exId = exercise.Exercise_ID;
+                const setsContainer = document.getElementById(`sets-container_${exId}`);
+                if (!setsContainer) return;
+
+                const setRows = setsContainer.querySelectorAll('.set-row');
+                setRows.forEach((row, index) => {
+                    const repsInput = row.querySelector(`input[name="reps_${exId}"]`);
+                    const reps = repsInput ? repsInput.value.trim() : '';
+
+                    if (reps) {
+                        logsAttempted++;
+                        const newLogRef = doc(logsCollectionRef);
+                        
+                        const logData = {
+                            Exercise_ID: exId,
+                            Date: workoutDate,
+                            SetNumber: index + 1,
+                            Actual_Reps: reps,
+                            Weight_Used: row.querySelector(`input[name="weight_${exId}"]`).value.trim(),
+                            Variation: row.querySelector(`input[name="var_${exId}"]`).value.trim(),
+                            Pain_Level: parseInt(row.querySelector(`input[name="pain_${exId}"]`).value, 10) || 0,
+                            Subjective_Feeling: 3,
+                            Comments: ''
+                        };
+                        batch.set(newLogRef, logData);
+                    }
+                });
+            });
+
+            if (logsAttempted === 0) {
+                showMessage("No sets were logged. Please enter the reps for at least one set.", 'error');
+                return;
+            }
+
+            try {
+                await batch.commit();
+                showMessage(`${logsAttempted} set(s) logged successfully!`, 'success');
+                // Don't reset the form, just switch tabs
+                window.switchTab('history-tab');
+            } catch (error) {
+                console.error("Error writing batch: ", error);
+                showMessage("Failed to save workout. Check console.", 'error');
+            }
+        }
+
+        /**
+         * Renders the simplified History Chart (just a list for simplicity in this single file PWA).
+         */
+        function renderHistoryChart() {
+            const container = document.getElementById('history-list');
+            if (!container) return;
+
+            if (sessionLogs.length === 0) {
+                 container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-8">No history logged yet. Log your first workout!</p>';
+                 return;
+            }
+
+            const exerciseMap = new Map(exercises.map(e => [e.Exercise_ID, e.Name]));
+
+            // Group logs by workout session (a session is all logs with the same timestamp)
+            const sessions = sessionLogs.reduce((acc, log) => {
+                const sessionTime = log.Date.toDate().getTime();
+                if (!acc[sessionTime]) {
+                    acc[sessionTime] = { date: log.Date.toDate(), logs: [] };
+                }
+                acc[sessionTime].logs.push(log);
+                return acc;
+            }, {});
+
+            // Sort sessions by date, newest first
+            const sortedSessions = Object.values(sessions).sort((a, b) => b.date - a.date);
+
+            container.innerHTML = sortedSessions.map(session => {
+                const dateStr = session.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                const timeStr = session.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Group logs within the session by exercise
+                const exercisesInSession = session.logs.reduce((acc, log) => {
+                    const exerciseName = exerciseMap.get(log.Exercise_ID) || 'Unknown Exercise';
+                    if (!acc[exerciseName]) {
+                        acc[exerciseName] = [];
+                    }
+                    acc[exerciseName].push(log);
+                    return acc;
+                }, {});
+
+                let exerciseHtml = '';
+                for (const exName in exercisesInSession) {
+                    const sets = exercisesInSession[exName].sort((a, b) => a.SetNumber - b.SetNumber);
+                    exerciseHtml += `
+                        <div class="mt-3">
+                            <h4 class="font-bold text-gray-700 dark:text-gray-200">${exName}</h4>
+                            <ul class="text-sm text-gray-600 dark:text-gray-300 mt-1 space-y-1 pl-2">
+                                ${sets.map(set => `
+                                    <li class="flex justify-between">
+                                        <span>
+                                            <strong>Set ${set.SetNumber}:</strong> ${set.Actual_Reps}
+                                            <span class="text-gray-500 dark:text-gray-400">@ ${set.Weight_Used || '0'}</span>
+                                            ${set.Variation ? `<span class="text-cyan-600 dark:text-cyan-400">(${set.Variation})</span>` : ''}
+                                        </span>
+                                        <span class="text-red-500 dark:text-red-400">Pain: ${set.Pain_Level}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md border-l-4 border-cyan-500 dark:border-cyan-400 mb-4">
+                        <div class="flex justify-between items-center mb-2 border-b dark:border-gray-600 pb-2">
+                            <h3 class="font-bold text-gray-800 dark:text-gray-100">${dateStr}</h3>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">${timeStr}</span>
+                        </div>
+                        ${exerciseHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Add event listener for the log form submission
+        document.addEventListener('DOMContentLoaded', () => {
+             document.getElementById('add-exercise-form').addEventListener('submit', handleAddExerciseSubmission);
+             initializeFirebase();
+        });
