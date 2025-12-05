@@ -696,8 +696,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 formHtml += `
                     <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md mb-4 border-l-4 border-gray-200 dark:border-gray-600">
                         <div class="flex justify-between items-center mb-3">
-                            <p class="font-bold text-gray-800 dark:text-gray-100 text-lg">${exercise.Name}</p>
-                            <span class="bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">${exercise.Focus_Area || ''}</span>
+                            <div class="flex items-center gap-2">
+                                <p class="font-bold text-gray-800 dark:text-gray-100 text-lg">${exercise.Name}</p>
+                                <span class="bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">${exercise.Focus_Area || ''}</span>
+                            </div>
+                            <button type="button" onclick="showExerciseHistory('${exId}')" class="text-cyan-600 dark:text-cyan-400 hover:bg-cyan-100 dark:hover:bg-gray-600 p-2 rounded-full transition-colors" title="View History">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </button>
                         </div>
                         
                         <div id="sets-container_${exId}" class="space-y-3 mt-3">
@@ -813,6 +818,70 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 if (submitBtn) submitBtn.disabled = false;
             }
         }
+
+        /**
+         * Renders the specific history for a single exercise.
+         * @param {string} exerciseId 
+         */
+        function showExerciseHistory(exerciseId) {
+            const exercise = exercises.find(e => e.Exercise_ID === exerciseId);
+            if (!exercise) return;
+
+            document.getElementById('history-exercise-title').textContent = `History: ${exercise.Name}`;
+            const container = document.getElementById('exercise-history-list');
+            container.innerHTML = '';
+
+            const historyLogs = sessionLogs
+                .filter(log => log.Exercise_ID === exerciseId)
+                .sort((a, b) => b.Date.toDate() - a.Date.toDate());
+
+            if (historyLogs.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center">No history recorded yet.</p>';
+                window.switchTab('exercise-history-tab');
+                return;
+            }
+
+            // Group by Session (Date)
+            const sessions = historyLogs.reduce((acc, log) => {
+                const sessionTime = log.Date.toDate().getTime();
+                if (!acc[sessionTime]) {
+                    acc[sessionTime] = { date: log.Date.toDate(), logs: [] };
+                }
+                acc[sessionTime].logs.push(log);
+                return acc;
+            }, {});
+
+            const sortedSessions = Object.values(sessions).sort((a, b) => b.date - a.date);
+
+            container.innerHTML = sortedSessions.map(session => {
+                const dateStr = session.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const timeStr = session.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const sets = session.logs.sort((a, b) => a.SetNumber - b.SetNumber);
+
+                return `
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-600">
+                        <div class="flex justify-between items-center mb-2 border-b dark:border-gray-600 pb-2">
+                            <span class="font-bold text-gray-800 dark:text-gray-100">${dateStr}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">${timeStr}</span>
+                        </div>
+                        <ul class="space-y-2 text-sm">
+                            ${sets.map(set => `
+                                <li class="flex justify-between items-center">
+                                    <span class="font-medium text-gray-600 dark:text-gray-300">Set ${set.SetNumber}</span>
+                                    <div class="text-right">
+                                        <span class="block text-gray-800 dark:text-gray-100 font-semibold">${set.Actual_Reps} <span class="text-xs font-normal text-gray-500">reps</span> @ ${set.Weight_Used || '0'}</span>
+                                        ${set.Variation ? `<span class="text-xs text-cyan-600 dark:text-cyan-400 italic">${set.Variation}</span>` : ''}
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }).join('');
+
+            window.switchTab('exercise-history-tab');
+        }
+        window.showExerciseHistory = showExerciseHistory;
 
         /**
          * Renders the simplified History Chart (just a list for simplicity in this single file PWA).

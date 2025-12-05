@@ -130,6 +130,15 @@
             </div>
             <div id="log-workout-tab" class="tab-content"></div>
 
+            <div id="exercise-history-tab" class="tab-content">
+                <button onclick="switchTab('log-workout-tab')" class="text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 text-sm mb-4 flex items-center font-semibold">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    Back to Workout
+                </button>
+                <h2 id="history-exercise-title" class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6"></h2>
+                <div id="exercise-history-list" class="space-y-4"></div>
+            </div>
+
             <div id="add-exercise-tab" class="tab-content">
                 <button onclick="switchTab('my-program')" class="text-red-500 dark:text-red-400 hover:text-red-400 text-sm mb-4 flex items-center">
                     &larr; Cancel
@@ -188,6 +197,6 @@
     </div>
 
     <script src="js/config.js"></script>
-    <script type="module" src="js/app.js?v=8"></script>
+    <script type="module" src="js/app.js?v=9"></script>
 </body>
 </html>
