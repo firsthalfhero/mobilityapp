@@ -189,6 +189,109 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         window.handleEditExercise = handleEditExercise;
 
         /**
+         * Renders the last 5 logs for the current exercise.
+         * @param {string} exerciseId - The ID of the exercise.
+         */
+        function renderRelatedLogs(exerciseId) {
+            const logsContainer = document.getElementById('detail-log-history');
+            if (!logsContainer) return;
+
+            const relatedLogs = sessionLogs
+                .filter(log => log.Exercise_ID === exerciseId)
+                .sort((a, b) => b.Date.toDate() - a.Date.toDate());
+
+            if (relatedLogs.length === 0) {
+                logsContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No session history logged yet.</p>';
+                return;
+            }
+
+            // Group logs by workout session
+            const sessions = relatedLogs.reduce((acc, log) => {
+                const sessionTime = log.Date.toDate().getTime();
+                if (!acc[sessionTime]) {
+                    acc[sessionTime] = { date: log.Date.toDate(), logs: [] };
+                }
+                acc[sessionTime].logs.push(log);
+                return acc;
+            }, {});
+
+            const last5Sessions = Object.values(sessions).slice(0, 5);
+
+            logsContainer.innerHTML = last5Sessions.map(session => {
+                 const dateStr = session.date.toLocaleDateString();
+                 const timeStr = session.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                 const sets = session.logs.sort((a, b) => a.SetNumber - b.SetNumber);
+
+                 return `
+                    <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 mb-3">
+                        <div class="flex justify-between text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
+                            <span>${dateStr} @ ${timeStr}</span>
+                        </div>
+                        <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1 pl-1">
+                        ${sets.map(set => `
+                            <li class="flex justify-between">
+                                <span>
+                                    <strong>Set ${set.SetNumber}:</strong> ${set.Actual_Reps}
+                                    <span class="text-gray-500 dark:text-gray-400">@ ${set.Weight_Used || '0'}</span>
+                                    ${set.Variation ? `<span class="text-cyan-600 dark:text-cyan-400">(${set.Variation})</span>` : ''}
+                                </span>
+                                <span class="text-red-500 dark:text-red-400">Pain: ${set.Pain_Level}</span>
+                            </li>
+                        `).join('')}
+                        </ul>
+                    </div>
+                 `;
+            }).join('');
+        }
+
+        /**
+         * Switches the main view tab.
+         * @param {string} tabId - The ID of the tab content to show.
+         */
+        function switchTab(tabId) {
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+            // Show the selected tab content
+            const activeContent = document.getElementById(tabId);
+            if (activeContent) activeContent.style.display = 'block';
+
+            // Update active tab styles
+            document.querySelectorAll('.tab-header button').forEach(button => {
+                button.classList.remove('active-tab');
+            });
+            const activeHeader = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
+            if (activeHeader) activeHeader.classList.add('active-tab');
+        }
+        
+        // Expose function globally for HTML elements
+        window.switchTab = switchTab;
+
+        /**
+         * Populates the Log Form with the selected exercise details and switches view.
+         */
+        function openLogForm() {
+            if (!currentExerciseId) {
+                showMessage("Please select an exercise first.", 'error');
+                return;
+            }
+            const exercise = exercises.find(e => e.Exercise_ID === currentExerciseId);
+            if (!exercise) return;
+
+            document.getElementById('log-exercise-name').textContent = exercise.Name;
+            document.getElementById('log-form').reset();
+            
+            // Set initial defaults/hints based on the master exercise
+            document.getElementById('log-actual-sets').placeholder = `Target: ${exercise.Target_Sets}`;
+            document.getElementById('log-actual-reps').placeholder = `Target: ${exercise.Target_Reps}`;
+            document.getElementById('log-weight-used').value = exercise.Weight_Used_Initial || '';
+            
+            window.switchTab('log-form-tab');
+        }
+        
+        // Expose function globally for HTML elements
+        window.openLogForm = openLogForm;
+
+        /**
          * Switches view to the Add/Edit Exercise form.
          * @param {object|null} exerciseToEdit - The exercise object if editing, or null if adding new.
          */
