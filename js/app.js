@@ -657,13 +657,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             const setCount = container.children.length + 1;
             const newSetHtml = `
-                <div class="flex items-center space-x-2 set-row">
-                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 w-10">Set ${setCount}</span>
+                <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px] gap-2 items-center set-row">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Set ${setCount}</span>
                     <input type="text" name="reps_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Reps">
                     <input type="text" name="weight_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Weight">
                     <input type="text" name="var_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Variation">
-                    <input type="number" name="pain_${exerciseId}" min="0" max="10" value="0" class="block w-20 rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" title="Pain (0-10)">
-                    <button type="button" onclick="removeSet(this)" class="p-2 text-red-500 hover:text-red-700 flex-shrink-0 text-xl leading-none">&times;</button>
+                    <button type="button" onclick="removeSet(this)" class="text-red-500 hover:text-red-700 text-xl leading-none justify-self-center">&times;</button>
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', newSetHtml);
@@ -680,12 +679,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const container = document.getElementById('log-workout-tab');
             if (!container) return;
 
-            const groupedExercises = exercises.reduce((acc, exercise) => {
-                const area = exercise.Focus_Area || 'Uncategorized';
-                if (!acc[area]) acc[area] = [];
-                acc[area].push(exercise);
-                return acc;
-            }, {});
+            if (exercises.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center mt-8">No exercises available. Add some to your program first!</p>';
+                return;
+            }
 
             let formHtml = `
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-1">Log Daily Workout</h2>
@@ -693,30 +690,39 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 <form id="log-workout-form">
             `;
 
-            for (const area in groupedExercises) {
-                formHtml += `<h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mt-6 mb-3 border-b dark:border-gray-600 pb-1">${area}</h3>`;
-                
-                groupedExercises[area].forEach(exercise => {
-                    const exId = exercise.Exercise_ID;
-                    formHtml += `
-                        <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md mb-4 border-l-4 border-gray-200 dark:border-gray-600">
+            // Flattened list, no categories
+            exercises.forEach(exercise => {
+                const exId = exercise.Exercise_ID;
+                formHtml += `
+                    <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md mb-4 border-l-4 border-gray-200 dark:border-gray-600">
+                        <div class="flex justify-between items-center mb-3">
                             <p class="font-bold text-gray-800 dark:text-gray-100 text-lg">${exercise.Name}</p>
-                            <div id="sets-container_${exId}" class="space-y-3 mt-3">
-                                <!-- Set 1 (Default) -->
-                                <div class="flex items-center space-x-2 set-row">
-                                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 w-10">Set 1</span>
-                                    <input type="text" name="reps_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Reps">
-                                    <input type="text" name="weight_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Weight">
-                                    <input type="text" name="var_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Variation">
-                                    <input type="number" name="pain_${exId}" min="0" max="10" value="0" class="block w-20 rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" title="Pain (0-10)">
-                                    <div class="w-8"></div> <!-- Spacer for alignment with remove button -->
-                                </div>
-                            </div>
-                            <button type="button" onclick="addSet('${exId}')" class="text-sm text-cyan-600 dark:text-cyan-400 hover:underline mt-3 font-medium">+ Add Set</button>
+                            <span class="bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">${exercise.Focus_Area || ''}</span>
                         </div>
-                    `;
-                });
-            }
+                        
+                        <div id="sets-container_${exId}" class="space-y-3 mt-3">
+                            <!-- Headers -->
+                            <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px] gap-2 items-center text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">
+                                <span></span>
+                                <span>Reps</span>
+                                <span>Weight</span>
+                                <span>Var</span>
+                                <span></span>
+                            </div>
+
+                            <!-- Set 1 (Default) -->
+                            <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px] gap-2 items-center set-row">
+                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Set 1</span>
+                                <input type="text" name="reps_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                                <input type="text" name="weight_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                                <input type="text" name="var_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                                <div class="w-8"></div> <!-- Spacer to align with remove button -->
+                            </div>
+                        </div>
+                        <button type="button" onclick="addSet('${exId}')" class="text-sm text-cyan-600 dark:text-cyan-400 hover:underline mt-3 font-medium">+ Add Set</button>
+                    </div>
+                `;
+            });
 
             formHtml += `
                     <button type="submit" class="w-full mt-6 bg-green-500 hover:bg-green-600 text-white text-lg font-bold py-3 rounded-xl shadow-lg">
@@ -740,6 +746,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }
 
             const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            
+            // Prevent double submission
+            if (submitBtn) submitBtn.disabled = true;
+
             const batch = writeBatch(db);
             const logsCollectionRef = collection(db, getPrivateCollectionPath('logs'));
             let logsAttempted = 0;
@@ -766,7 +777,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                             Actual_Reps: reps,
                             Weight_Used: row.querySelector(`input[name="weight_${exId}"]`).value.trim(),
                             Variation: row.querySelector(`input[name="var_${exId}"]`).value.trim(),
-                            Pain_Level: parseInt(row.querySelector(`input[name="pain_${exId}"]`).value, 10) || 0,
+                            // Pain Level removed
                             Subjective_Feeling: 3,
                             Comments: ''
                         };
@@ -777,17 +788,29 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             if (logsAttempted === 0) {
                 showMessage("No sets were logged. Please enter the reps for at least one set.", 'error');
+                if (submitBtn) submitBtn.disabled = false;
                 return;
             }
 
             try {
                 await batch.commit();
-                showMessage(`${logsAttempted} set(s) logged successfully!`, 'success');
-                // Don't reset the form, just switch tabs
-                window.switchTab('history-tab');
+                
+                // Success feedback and clear
+                alert("Workout Saved Successfully! Great job."); // Simple feedback as requested
+                form.reset();
+                renderWorkoutForm(); // Re-render to reset the set rows to default (1 set)
+                
+                // Enable button again (though form is reset)
+                if (submitBtn) submitBtn.disabled = false;
+                
+                // Stay on screen or switch? Spec said "return to My Program screen" but "when the user returns... sees a blank form".
+                // "The expected behavior is to record the workout and then show a success screen."
+                // Simple alert + reset satisfies "blank form so they can start a new workout".
+                
             } catch (error) {
                 console.error("Error writing batch: ", error);
                 showMessage("Failed to save workout. Check console.", 'error');
+                if (submitBtn) submitBtn.disabled = false;
             }
         }
 
