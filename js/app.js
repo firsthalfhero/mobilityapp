@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, limit, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
@@ -8,12 +8,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         let db;
         let auth;
         let userId = null;
-        
+
+        // --- Session Persistence & Listener Management ---
+        let unsubscribeExercises = null;  // Unsubscribe function for exercises listener
+        let unsubscribeSessionLogs = null; // Unsubscribe function for logs listener
+        let isListenersSetup = false;      // Flag to prevent duplicate listener setup
+        let isFirebaseInitialized = false; // Flag to prevent duplicate initialization
+        // ------------------------------------
+
         // --- Setup Variables for Local Development ---
         // The firebaseConfig object is now loaded from js/config.js
-        
+
         // For local testing, we will ignore the token and app ID from the canvas.
-        const initialAuthToken = null; 
+        const initialAuthToken = null;
         // ------------------------------------
 
         // --- Utility Functions ---
@@ -556,39 +563,51 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 db = getFirestore(app);
                 auth = getAuth(app);
 
+                // Set explicit persistence to ensure session persists across browser restarts
+                await setPersistence(auth, browserLocalPersistence);
+                console.log("Session persistence configured: browserLocalPersistence");
+
                 onAuthStateChanged(auth, async (user) => {
-                    const signInView = document.getElementById('sign-in-view');
-                    const mainAppContainer = document.getElementById('main-app-container');
-                    const signOutBtn = document.getElementById('sign-out-btn');
-                    const loadingOverlay = document.getElementById('loading-overlay');
+                    try {
+                        const signInView = document.getElementById('sign-in-view');
+                        const mainAppContainer = document.getElementById('main-app-container');
+                        const signOutBtn = document.getElementById('sign-out-btn');
+                        const loadingOverlay = document.getElementById('loading-overlay');
 
-                    if (user) {
-                        // User is signed in
-                        userId = user.uid;
-                        console.log("Firebase Auth successful. User ID:", userId);
-                        
-                        signInView.style.display = 'none';
-                        mainAppContainer.style.display = 'block';
-                        signOutBtn.style.display = 'block';
-                        loadingOverlay.style.display = 'flex';
-                        document.getElementById('loading-message').textContent = `Welcome, ${user.displayName || 'user'}! Loading data...`;
+                        if (user) {
+                            // User is signed in
+                            userId = user.uid;
+                            console.log("Firebase Auth successful. User ID:", userId);
 
-                        setupRealtimeListeners();
-                    } else {
-                        // User is signed out
-                        userId = null;
-                        console.log("No user signed in.");
+                            signInView.style.display = 'none';
+                            mainAppContainer.style.display = 'block';
+                            signOutBtn.style.display = 'block';
+                            loadingOverlay.style.display = 'flex';
+                            document.getElementById('loading-message').textContent = `Welcome, ${user.displayName || 'user'}! Loading data...`;
 
-                        // Reset app state
-                        exercises = [];
-                        sessionLogs = [];
-                        renderExercises(); // Clear lists
-                        renderHistoryChart();
+                            setupRealtimeListeners();
+                        } else {
+                            // User is signed out
+                            userId = null;
+                            console.log("No user signed in.");
 
-                        loadingOverlay.style.display = 'none';
-                        mainAppContainer.style.display = 'none';
-                        signOutBtn.style.display = 'none';
-                        signInView.style.display = 'flex';
+                            // Clean up listeners before clearing data
+                            cleanupRealtimeListeners();
+
+                            // Reset app state
+                            exercises = [];
+                            sessionLogs = [];
+                            renderExercises(); // Clear lists
+                            renderHistoryChart();
+
+                            loadingOverlay.style.display = 'none';
+                            mainAppContainer.style.display = 'none';
+                            signOutBtn.style.display = 'none';
+                            signInView.style.display = 'flex';
+                        }
+                    } catch (error) {
+                        console.error("Error in auth state change handler:", error);
+                        showMessage("An error occurred. Please refresh the page.", 'error');
                     }
                 });
 
@@ -599,26 +618,50 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
 
         /**
+         * Cleans up existing real-time listeners to prevent duplicates and memory leaks.
+         */
+        function cleanupRealtimeListeners() {
+            if (unsubscribeExercises) {
+                unsubscribeExercises();
+                unsubscribeExercises = null;
+                console.log("Cleaned up exercises listener");
+            }
+            if (unsubscribeSessionLogs) {
+                unsubscribeSessionLogs();
+                unsubscribeSessionLogs = null;
+                console.log("Cleaned up session logs listener");
+            }
+            isListenersSetup = false;
+        }
+
+        /**
          * Sets up real-time listeners for the two main data collections.
+         * Prevents duplicate listener setup by checking isListenersSetup flag.
          */
         function setupRealtimeListeners() {
             if (!userId || !db) return;
+
+            // Clean up any existing listeners before setting up new ones
+            if (isListenersSetup) {
+                console.log("Listeners already set up, cleaning up old ones first");
+                cleanupRealtimeListeners();
+            }
 
             // 1. Listen for Exercise changes (Master Library)
             const exercisesPath = getPrivateCollectionPath('exercises');
             if (exercisesPath) {
                 const q = query(collection(db, exercisesPath), orderBy("order", "asc"));
-                onSnapshot(q, (snapshot) => {
+                unsubscribeExercises = onSnapshot(q, (snapshot) => {
                     exercises = snapshot.docs.map(doc => ({ Exercise_ID: doc.id, ...doc.data() }));
                     renderExercises();
                     renderWorkoutForm(); // Render the new workout form
-                    
+
                     // If loading overlay is visible, this is likely the initial load
                     const overlay = document.getElementById('loading-overlay');
                     if (overlay && overlay.style.display !== 'none') {
                         overlay.style.display = 'none';
                         document.getElementById('loading-message').textContent = ''; // Clear loading text
-                        window.switchTab('dashboard-tab'); 
+                        window.switchTab('dashboard-tab');
                     }
                 }, (error) => {
                     console.error("Error fetching exercises:", error);
@@ -629,7 +672,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             // 2. Listen for Session Log changes (Tracking History)
             const logsPath = getPrivateCollectionPath('logs');
             if (logsPath) {
-                onSnapshot(collection(db, logsPath), (snapshot) => {
+                unsubscribeSessionLogs = onSnapshot(collection(db, logsPath), (snapshot) => {
                     // Convert Firestore Timestamps to JS Date objects on load for sorting
                     sessionLogs = snapshot.docs.map(doc => ({ Log_ID: doc.id, ...doc.data() }));
                     // If we are in the detail view, refresh the log history
@@ -645,7 +688,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     showMessage("Failed to load session history.", 'error');
                 });
             }
-            
+
+            isListenersSetup = true;
+            console.log("Real-time listeners set up successfully");
+
             // Default to Dashboard
             window.switchTab('dashboard-tab');
         }
@@ -965,5 +1011,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         // Add event listener for the log form submission
         document.addEventListener('DOMContentLoaded', () => {
              document.getElementById('add-exercise-form').addEventListener('submit', handleAddExerciseSubmission);
-             initializeFirebase();
+             // Prevent duplicate Firebase initialization
+             if (!isFirebaseInitialized) {
+                 isFirebaseInitialized = true;
+                 initializeFirebase();
+             }
         });
