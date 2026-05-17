@@ -46,6 +46,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         let sessionLogs = [];
         let currentExerciseId = null;
 
+        // --- Multiple Workouts Support ---
+        let workouts = [];                    // Array of user's workouts
+        let currentWorkoutId = null;          // Currently selected workout
+        let unsubscribeWorkouts = null;       // Unsubscribe function for workouts listener
+        // ------------------------------------
+
         // --- Dashboard Logic ---
 
         function getStartOfWeek() {
@@ -95,72 +101,124 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
 
         /**
-         * Renders the list of exercises in the My Program tab.
+         * Renders the list of exercises in the My Program tab, grouped by sections.
          */
         function renderExercises() {
             const container = document.getElementById('exercise-list');
             if (!container) return;
 
             container.innerHTML = '';
-            
-            if (exercises.length === 0) {
+
+            // Filter exercises for current workout
+            const filteredExercises = exercises.filter(ex => ex.workoutId === currentWorkoutId);
+
+            if (filteredExercises.length === 0) {
                 container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-8">No exercises added yet.</p>';
                 return;
             }
 
-            // Render flat list
-            exercises.forEach((exercise, index) => {
-                const card = document.createElement('div');
-                // Added cursor-move to indicate draggable
-                card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-4 cursor-move`; 
-                card.setAttribute('data-id', exercise.Exercise_ID);
-                
-                card.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div class="flex-grow" onclick="handleEditExercise('${exercise.Exercise_ID}')">
-                            <div class="flex justify-between items-start mb-1">
-                                <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
-                                <span class="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-[10px] px-2 py-0.5 rounded-md font-medium uppercase tracking-wider mr-2 text-center min-w-[60px]">${exercise.Focus_Area || 'General'}</span>
-                            </div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">${exercise.Physio_Notes || 'No notes available.'}</p>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(card);
+            // Get the current workout to access sections
+            const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
+            if (!currentWorkout || !currentWorkout.sections) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center mt-8">Workout not found.</p>';
+                return;
+            }
+
+            // Group exercises by section
+            const groupedBySection = {};
+            currentWorkout.sections.forEach(section => {
+                groupedBySection[section.id] = [];
             });
 
-            // Initialize Sortable
-            if (window.sortableInstance) window.sortableInstance.destroy();
-            window.sortableInstance = new Sortable(container, {
-                animation: 150,
-                handle: '.card', // Draggable by the whole card
-                delay: 100, // Slight delay to prevent accidental drags when tapping to edit
-                onEnd: async function (evt) {
-                    const newIndex = evt.newIndex;
-                    const oldIndex = evt.oldIndex;
-                    
-                    if (newIndex === oldIndex) return;
-
-                    // Reorder local array
-                    const movedItem = exercises.splice(oldIndex, 1)[0];
-                    exercises.splice(newIndex, 0, movedItem);
-
-                    // Batch update Firestore
-                    try {
-                        const batch = writeBatch(db);
-                        const exercisesPath = getPrivateCollectionPath('exercises');
-                        
-                        exercises.forEach((ex, index) => {
-                            const ref = doc(db, exercisesPath, ex.Exercise_ID);
-                            batch.update(ref, { order: index }); // Simple sequential ordering
-                        });
-                        
-                        await batch.commit();
-                    } catch (error) {
-                        console.error("Error saving order:", error);
-                        showMessage("Failed to save new order.", "error");
-                    }
+            filteredExercises.forEach(exercise => {
+                if (groupedBySection[exercise.sectionId]) {
+                    groupedBySection[exercise.sectionId].push(exercise);
                 }
+            });
+
+            // Render sections and exercises
+            currentWorkout.sections.forEach(section => {
+                const sectionExercises = groupedBySection[section.id] || [];
+
+                // Create section header
+                const sectionHeader = document.createElement('div');
+                sectionHeader.className = 'mt-6 mb-3';
+                sectionHeader.innerHTML = `
+                    <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest">${section.name}</h3>
+                `;
+                container.appendChild(sectionHeader);
+
+                // Create section container for sortable
+                const sectionContainer = document.createElement('div');
+                sectionContainer.className = 'section-container mb-4';
+                sectionContainer.setAttribute('data-section-id', section.id);
+
+                // Render exercises in this section
+                sectionExercises.forEach((exercise) => {
+                    const card = document.createElement('div');
+                    card.className = `card bg-white dark:bg-gray-700 p-4 rounded-xl shadow-lg border-l-4 border-cyan-500 dark:border-cyan-400 mb-4 cursor-move`;
+                    card.setAttribute('data-id', exercise.Exercise_ID);
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div class="flex-grow" onclick="handleEditExercise('${exercise.Exercise_ID}')">
+                                <div class="flex justify-between items-start mb-1">
+                                    <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">${exercise.Name}</h3>
+                                    <span class="bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-[10px] px-2 py-0.5 rounded-md font-medium uppercase tracking-wider mr-2 text-center min-w-[60px]">${exercise.Focus_Area || 'General'}</span>
+                                </div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">${exercise.Physio_Notes || 'No notes available.'}</p>
+                            </div>
+                        </div>
+                    `;
+                    sectionContainer.appendChild(card);
+                });
+
+                container.appendChild(sectionContainer);
+            });
+
+            // Initialize Sortable for each section
+            if (window.sortableInstances) {
+                window.sortableInstances.forEach(instance => instance.destroy());
+            }
+            window.sortableInstances = [];
+
+            const sectionContainers = container.querySelectorAll('.section-container');
+            sectionContainers.forEach(sectionContainer => {
+                const sortable = new Sortable(sectionContainer, {
+                    animation: 150,
+                    handle: '.card',
+                    delay: 100,
+                    onEnd: async function (evt) {
+                        const newIndex = evt.newIndex;
+                        const oldIndex = evt.oldIndex;
+
+                        if (newIndex === oldIndex) return;
+
+                        const sectionId = sectionContainer.getAttribute('data-section-id');
+                        const sectionExercises = filteredExercises.filter(ex => ex.sectionId === sectionId);
+
+                        // Reorder exercises within this section
+                        const movedExercise = sectionExercises.splice(oldIndex, 1)[0];
+                        sectionExercises.splice(newIndex, 0, movedExercise);
+
+                        // Update Firestore with new order
+                        try {
+                            const batch = writeBatch(db);
+                            const exercisesPath = getPrivateCollectionPath('exercises');
+
+                            sectionExercises.forEach((ex, index) => {
+                                const ref = doc(db, exercisesPath, ex.Exercise_ID);
+                                batch.update(ref, { order: index });
+                            });
+
+                            await batch.commit();
+                        } catch (error) {
+                            console.error("Error saving order:", error);
+                            showMessage("Failed to save new order.", "error");
+                        }
+                    }
+                });
+                window.sortableInstances.push(sortable);
             });
         }
         
@@ -411,9 +469,27 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const form = document.getElementById('add-exercise-form');
             const title = document.querySelector('#add-exercise-tab h2');
             const submitBtn = form.querySelector('button[type="submit"]');
+            const sectionSelect = form['Section'];
 
             form.reset();
-            
+
+            // Populate section dropdown with current workout's sections
+            const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
+            sectionSelect.innerHTML = '<option value="">-- Select a section --</option>';
+
+            if (currentWorkout && currentWorkout.sections) {
+                currentWorkout.sections.forEach(section => {
+                    const option = document.createElement('option');
+                    option.value = section.id;
+                    option.textContent = section.name;
+                    sectionSelect.appendChild(option);
+                });
+                // Default to first section
+                if (currentWorkout.sections.length > 0) {
+                    sectionSelect.value = currentWorkout.sections[0].id;
+                }
+            }
+
             if (exerciseToEdit) {
                 // Edit Mode
                 currentExerciseId = exerciseToEdit.Exercise_ID; // Track ID for deletion/updates
@@ -424,12 +500,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 // Populate fields
                 form['Name'].value = exerciseToEdit.Name || '';
                 form['Focus_Area'].value = exerciseToEdit.Focus_Area || '';
+                form['Section'].value = exerciseToEdit.sectionId || '';
                 form['Target_Sets'].value = exerciseToEdit.Target_Sets || '';
                 form['Target_Reps'].value = exerciseToEdit.Target_Reps || '';
                 form['Weight_Used_Initial'].value = exerciseToEdit.Weight_Used_Initial || '';
                 form['Video_Link'].value = exerciseToEdit.Video_Link || '';
                 form['Physio_Notes'].value = exerciseToEdit.Physio_Notes || '';
-                
+
                 // Add Delete Button dynamically if editing
                 if (!document.getElementById('delete-exercise-btn')) {
                     const deleteBtn = document.createElement('button');
@@ -446,7 +523,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 form.removeAttribute('data-edit-id');
                 title.textContent = "Create New Exercise";
                 submitBtn.textContent = "Save Exercise";
-                
+
                 // Remove delete button if present
                 const deleteBtn = document.getElementById('delete-exercise-btn');
                 if (deleteBtn) deleteBtn.remove();
@@ -465,7 +542,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          */
         async function handleAddExerciseSubmission(event) {
             event.preventDefault();
-            
+
             if (!userId) {
                 showMessage("Authentication error. Please reload.", 'error');
                 return;
@@ -477,16 +554,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const exerciseData = {
                 Name: form['Name'].value.trim(),
                 Focus_Area: form['Focus_Area'].value.trim(),
+                sectionId: form['Section'].value.trim(),
+                workoutId: currentWorkoutId,
                 Target_Sets: parseInt(form['Target_Sets'].value, 10),
                 Target_Reps: form['Target_Reps'].value.trim(),
                 Weight_Used_Initial: form['Weight_Used_Initial'].value.trim(),
                 Video_Link: form['Video_Link'].value.trim(),
                 Physio_Notes: form['Physio_Notes'].value.trim(),
             };
-            
+
+            if (!exerciseData.sectionId) {
+                showMessage("Please select a section.", 'error');
+                return;
+            }
+
             // Only set order for new items to avoid overwriting existing order on edit
             if (!editId) {
-                exerciseData.order = new Date().getTime(); 
+                exerciseData.order = new Date().getTime();
             }
 
             if (!exerciseData.Name || !exerciseData.Focus_Area) {
@@ -500,7 +584,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 
             try {
                 const exercisesPath = getPrivateCollectionPath('exercises');
-                
+
                 if (editId) {
                     // Update existing
                     const docRef = doc(db, exercisesPath, editId);
@@ -514,7 +598,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }
 
                 form.reset();
-                window.switchTab('my-program'); 
+                window.switchTab('my-program');
             } catch (error) {
                 console.error("Error saving exercise: ", error);
                 showMessage("Failed to save exercise. Check console.", 'error');
@@ -644,6 +728,113 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
 
         /**
+         * Renders the workout selector dropdown on the My Program tab.
+         */
+        function renderWorkoutSelector() {
+            const selector = document.getElementById('workout-selector');
+            if (!selector) return;
+
+            selector.innerHTML = '';
+
+            if (workouts.length === 0) {
+                selector.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">No workouts created. Create one to get started.</p>';
+                return;
+            }
+
+            const select = document.createElement('select');
+            select.id = 'workout-dropdown';
+            select.className = 'block w-full rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500';
+            select.addEventListener('change', (e) => {
+                currentWorkoutId = e.target.value;
+                renderExercises();
+                renderWorkoutForm();
+            });
+
+            workouts.forEach(workout => {
+                const option = document.createElement('option');
+                option.value = workout.id;
+                option.textContent = workout.name;
+                if (workout.id === currentWorkoutId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            selector.appendChild(select);
+        }
+        window.renderWorkoutSelector = renderWorkoutSelector;
+
+        /**
+         * Creates a default workout if none exist.
+         */
+        async function createDefaultWorkout() {
+            if (!userId || !db) return;
+
+            try {
+                const workoutData = {
+                    name: 'Default',
+                    description: 'Your default workout',
+                    order: 0,
+                    sections: [
+                        { id: 'default-section', name: 'Exercises', order: 0 }
+                    ]
+                };
+
+                const workoutsPath = getPrivateCollectionPath('workouts');
+                const docRef = await addDoc(collection(db, workoutsPath), workoutData);
+                console.log("Default workout created with ID:", docRef.id);
+                return docRef.id;
+            } catch (error) {
+                console.error("Error creating default workout:", error);
+            }
+        }
+
+        /**
+         * Migrates existing exercises without workoutId to the default workout.
+         */
+        async function migrateExercisesToDefaultWorkout() {
+            if (!userId || !db || exercises.length === 0) return;
+
+            try {
+                // Find exercises without workoutId
+                const exercisesNeedingMigration = exercises.filter(ex => !ex.workoutId);
+
+                if (exercisesNeedingMigration.length === 0) {
+                    console.log("No exercises need migration");
+                    return;
+                }
+
+                // Get the default workout
+                const defaultWorkout = workouts.find(w => w.name === 'Default');
+                if (!defaultWorkout) {
+                    console.error("Default workout not found for migration");
+                    return;
+                }
+
+                const defaultSectionId = defaultWorkout.sections && defaultWorkout.sections.length > 0
+                    ? defaultWorkout.sections[0].id
+                    : 'default-section';
+
+                // Batch update exercises
+                const batch = writeBatch(db);
+                const exercisesPath = getPrivateCollectionPath('exercises');
+
+                exercisesNeedingMigration.forEach(exercise => {
+                    const ref = doc(db, exercisesPath, exercise.Exercise_ID);
+                    batch.update(ref, {
+                        workoutId: defaultWorkout.id,
+                        sectionId: defaultSectionId
+                    });
+                });
+
+                await batch.commit();
+                console.log(`Migrated ${exercisesNeedingMigration.length} exercises to default workout`);
+            } catch (error) {
+                console.error("Error migrating exercises:", error);
+            }
+        }
+
+        /**
          * Cleans up existing real-time listeners to prevent duplicates and memory leaks.
          */
         function cleanupRealtimeListeners() {
@@ -656,6 +847,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 unsubscribeSessionLogs();
                 unsubscribeSessionLogs = null;
                 console.log("Cleaned up session logs listener");
+            }
+            if (unsubscribeWorkouts) {
+                unsubscribeWorkouts();
+                unsubscribeWorkouts = null;
+                console.log("Cleaned up workouts listener");
             }
             isListenersSetup = false;
         }
@@ -712,6 +908,37 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 }, (error) => {
                     console.error("Error fetching session logs:", error);
                     showMessage("Failed to load session history.", 'error');
+                });
+            }
+
+            // 3. Listen for Workouts
+            const workoutsPath = getPrivateCollectionPath('workouts');
+            if (workoutsPath) {
+                unsubscribeWorkouts = onSnapshot(collection(db, workoutsPath), async (snapshot) => {
+                    workouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Sort by order field
+                    workouts.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    // If no workouts exist yet, create a default one
+                    if (workouts.length === 0) {
+                        await createDefaultWorkout();
+                        // The listener will fire again with the new workout, so we return here
+                        return;
+                    }
+
+                    // If no current workout is selected, select the first one
+                    if (!currentWorkoutId && workouts.length > 0) {
+                        currentWorkoutId = workouts[0].id;
+                    }
+
+                    // Migrate existing exercises to default workout if needed
+                    migrateExercisesToDefaultWorkout();
+
+                    // Update UI to reflect workouts
+                    renderWorkoutSelector();
+                }, (error) => {
+                    console.error("Error fetching workouts:", error);
+                    showMessage("Failed to load workouts.", 'error');
                 });
             }
 

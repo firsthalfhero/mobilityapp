@@ -80,11 +80,20 @@
             </div>
 
             <div id="my-program" class="tab-content">
+                <!-- Workout Selector -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Workout</label>
+                    <div id="workout-selector"></div>
+                </div>
+
+                <!-- Add Exercise Button -->
                 <div class="my-4">
                     <button onclick="openAddExerciseForm()" class="w-full bg-cyan-500 hover:bg-cyan-600 dark:bg-cyan-600 dark:hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
                         + Add New Exercise
                     </button>
                 </div>
+
+                <!-- Exercise List (grouped by sections) -->
                 <div id="exercise-list"></div>
             </div>
 
@@ -155,6 +164,13 @@
                         <label for="ex-focus-area" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Focus Area</label>
                         <input type="text" id="ex-focus-area" name="Focus_Area" required class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border" placeholder="e.g., Neck/Spine">
                     </div>
+                    <!-- Section -->
+                    <div>
+                        <label for="ex-section" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Section</label>
+                        <select id="ex-section" name="Section" required class="mt-1 block w-full rounded-lg bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 dark:text-gray-200 shadow-sm p-3 focus:ring-cyan-500 focus:border-cyan-500 border">
+                            <option value="">-- Select a section --</option>
+                        </select>
+                    </div>
                     <!-- Target Sets -->
                     <div>
                         <label for="ex-target-sets" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Target Sets</label>
@@ -196,7 +212,7 @@
         <div id="message-box" class="fixed bottom-20 opacity-0 transition-all duration-300 p-3 rounded-xl shadow-2xl z-50"></div>
 
         <footer class="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-gray-50 dark:bg-gray-800 border-t dark:border-gray-700 px-4 py-2 text-center">
-            <p class="text-xs text-gray-400 dark:text-gray-500">Mobility with Simon • v1.1.0</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">Mobility with Simon • v1.2.0</p>
         </footer>
     </div>
 
