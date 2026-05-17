@@ -216,16 +216,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                             <span>${dateStr} @ ${timeStr}</span>
                         </div>
                         <ul class="text-sm text-gray-600 dark:text-gray-300 space-y-1 pl-1">
-                        ${sets.map(set => `
+                        ${sets.map(set => {
+                            let metricsStr = '';
+                            if (set.RPE) metricsStr += `RPE: ${set.RPE}`;
+                            if (set.Pain) metricsStr += (metricsStr ? ' • ' : '') + `Pain: ${set.Pain}`;
+                            return `
                             <li class="flex justify-between">
                                 <span>
                                     <strong>Set ${set.SetNumber}:</strong> ${set.Actual_Reps}
                                     <span class="text-gray-500 dark:text-gray-400">@ ${set.Weight_Used || '0'}</span>
                                     ${set.Variation ? `<span class="text-cyan-600 dark:text-cyan-400">(${set.Variation})</span>` : ''}
                                 </span>
-                                <span class="text-red-500 dark:text-red-400">Pain: ${set.Pain_Level}</span>
+                                ${metricsStr ? `<span class="text-yellow-600 dark:text-yellow-400">${metricsStr}</span>` : ''}
                             </li>
-                        `).join('')}
+                        `}).join('')}
                         </ul>
                     </div>
                  `;
@@ -696,19 +700,98 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             window.switchTab('dashboard-tab');
         }
 
+        function toggleSetDetails(button) {
+            event.preventDefault();
+            const setGroup = button.closest('.set-group');
+            if (!setGroup) return;
+
+            const detailsSection = setGroup.querySelector('.set-details');
+            if (!detailsSection) return;
+
+            const isHidden = detailsSection.classList.contains('hidden');
+
+            if (isHidden) {
+                detailsSection.classList.remove('hidden');
+                button.textContent = '−';
+                button.classList.add('text-cyan-600');
+                button.classList.remove('text-gray-400');
+
+                // Set up slider listeners when section is shown
+                setupSliderListeners(setGroup);
+            } else {
+                detailsSection.classList.add('hidden');
+                button.textContent = '+';
+                button.classList.remove('text-cyan-600');
+                button.classList.add('text-gray-400');
+            }
+        }
+        window.toggleSetDetails = toggleSetDetails;
+
+        function setupSliderListeners(setGroup) {
+            const rpeSlider = setGroup.querySelector('.rpe-slider');
+            const painSlider = setGroup.querySelector('.pain-slider');
+
+            if (rpeSlider) {
+                const rpeDisplay = setGroup.querySelector('[data-rpe-display]');
+                rpeSlider.addEventListener('input', (e) => {
+                    if (rpeDisplay) {
+                        rpeDisplay.textContent = e.target.value;
+                    }
+                });
+                // Set initial display value if slider has value
+                if (rpeSlider.value && rpeDisplay) {
+                    rpeDisplay.textContent = rpeSlider.value;
+                }
+            }
+
+            if (painSlider) {
+                const painDisplay = setGroup.querySelector('[data-pain-display]');
+                painSlider.addEventListener('input', (e) => {
+                    if (painDisplay) {
+                        painDisplay.textContent = e.target.value;
+                    }
+                });
+                // Set initial display value if slider has value
+                if (painSlider.value && painDisplay) {
+                    painDisplay.textContent = painSlider.value;
+                }
+            }
+        }
+
         function addSet(exerciseId) {
             event.preventDefault();
             const container = document.getElementById(`sets-container_${exerciseId}`);
             if (!container) return;
 
-            const setCount = container.children.length + 1;
+            // Count actual set groups (not headers)
+            const setCount = container.querySelectorAll('.set-group').length + 1;
             const newSetHtml = `
-                <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px] gap-2 items-center set-row">
-                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Set ${setCount}</span>
-                    <input type="text" name="reps_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Reps">
-                    <input type="text" name="weight_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Weight">
-                    <input type="text" name="var_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="Variation">
-                    <button type="button" onclick="removeSet(this)" class="text-red-500 hover:text-red-700 text-xl leading-none justify-self-center">&times;</button>
+                <div class="set-group">
+                    <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px_30px] gap-2 items-center set-row">
+                        <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Set ${setCount}</span>
+                        <input type="text" name="reps_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                        <input type="text" name="weight_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                        <input type="text" name="var_${exerciseId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                        <button type="button" onclick="removeSet(this)" class="text-red-500 hover:text-red-700 text-xl leading-none justify-self-center">×</button>
+                        <button type="button" onclick="toggleSetDetails(this)" class="text-gray-400 hover:text-cyan-600 text-lg leading-none justify-self-center font-bold" title="Show RPE & Pain">+</button>
+                    </div>
+                    <!-- RPE & Pain Detail Section (Hidden by default) -->
+                    <div class="set-details hidden bg-gray-100 dark:bg-gray-600 p-3 rounded-lg mt-2 ml-12 mr-0 space-y-3">
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-medium text-gray-700 dark:text-gray-300">RPE (6-20)</label>
+                                <span class="text-sm font-bold text-cyan-600 dark:text-cyan-400" data-rpe-display="${setCount}">--</span>
+                            </div>
+                            <input type="range" name="rpe_${exerciseId}" min="6" max="20" class="w-full rpe-slider" data-set-id="${setCount}">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Pain (1-5)</label>
+                                <span class="text-sm font-bold text-red-600 dark:text-red-400" data-pain-display="${setCount}">--</span>
+                            </div>
+                            <input type="range" name="pain_${exerciseId}" min="1" max="5" class="w-full pain-slider" data-set-id="${setCount}">
+                        </div>
+                    </div>
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', newSetHtml);
@@ -753,21 +836,42 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         
                         <div id="sets-container_${exId}" class="space-y-3 mt-3">
                             <!-- Headers -->
-                            <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px] gap-2 items-center text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">
+                            <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px_30px] gap-2 items-center text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">
                                 <span></span>
                                 <span>Reps</span>
                                 <span>Weight</span>
                                 <span>Var</span>
                                 <span></span>
+                                <span></span>
                             </div>
 
                             <!-- Set 1 (Default) -->
-                            <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px] gap-2 items-center set-row">
-                                <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Set 1</span>
-                                <input type="text" name="reps_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
-                                <input type="text" name="weight_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
-                                <input type="text" name="var_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
-                                <div class="w-8"></div> <!-- Spacer to align with remove button -->
+                            <div class="set-group">
+                                <div class="grid grid-cols-[40px_1fr_1fr_1fr_30px_30px] gap-2 items-center set-row">
+                                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Set 1</span>
+                                    <input type="text" name="reps_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                                    <input type="text" name="weight_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                                    <input type="text" name="var_${exId}" class="block w-full rounded-md bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500 dark:text-gray-200 shadow-sm p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500" placeholder="">
+                                    <button type="button" onclick="removeSet(this)" class="text-red-500 hover:text-red-700 text-xl leading-none justify-self-center">×</button>
+                                    <button type="button" onclick="toggleSetDetails(this)" class="text-gray-400 hover:text-cyan-600 text-lg leading-none justify-self-center font-bold" title="Show RPE & Pain">+</button>
+                                </div>
+                                <!-- RPE & Pain Detail Section (Hidden by default) -->
+                                <div class="set-details hidden bg-gray-100 dark:bg-gray-600 p-3 rounded-lg mt-2 ml-12 mr-0 space-y-3">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">RPE (6-20)</label>
+                                            <span class="text-sm font-bold text-cyan-600 dark:text-cyan-400" data-rpe-display="1">--</span>
+                                        </div>
+                                        <input type="range" name="rpe_${exId}" min="6" max="20" class="w-full rpe-slider" data-set-id="1">
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Pain (1-5)</label>
+                                            <span class="text-sm font-bold text-red-600 dark:text-red-400" data-pain-display="1">--</span>
+                                        </div>
+                                        <input type="range" name="pain_${exId}" min="1" max="5" class="w-full pain-slider" data-set-id="1">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <button type="button" onclick="addSet('${exId}')" class="text-sm text-cyan-600 dark:text-cyan-400 hover:underline mt-3 font-medium">+ Add Set</button>
@@ -812,15 +916,25 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 const setsContainer = document.getElementById(`sets-container_${exId}`);
                 if (!setsContainer) return;
 
-                const setRows = setsContainer.querySelectorAll('.set-row');
-                setRows.forEach((row, index) => {
+                const setGroups = setsContainer.querySelectorAll('.set-group');
+                setGroups.forEach((setGroup, index) => {
+                    const row = setGroup.querySelector('.set-row');
+                    if (!row) return;
+
                     const repsInput = row.querySelector(`input[name="reps_${exId}"]`);
                     const reps = repsInput ? repsInput.value.trim() : '';
 
                     if (reps) {
                         logsAttempted++;
                         const newLogRef = doc(logsCollectionRef);
-                        
+
+                        // Extract optional RPE and Pain values if provided
+                        const rpeInput = setGroup.querySelector(`input[name="rpe_${exId}"]`);
+                        const painInput = setGroup.querySelector(`input[name="pain_${exId}"]`);
+
+                        const rpeValue = rpeInput && rpeInput.value ? parseInt(rpeInput.value, 10) : null;
+                        const painValue = painInput && painInput.value ? parseInt(painInput.value, 10) : null;
+
                         const logData = {
                             Exercise_ID: exId,
                             Date: workoutDate,
@@ -828,10 +942,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                             Actual_Reps: reps,
                             Weight_Used: row.querySelector(`input[name="weight_${exId}"]`).value.trim(),
                             Variation: row.querySelector(`input[name="var_${exId}"]`).value.trim(),
-                            // Pain Level removed
                             Subjective_Feeling: 3,
                             Comments: ''
                         };
+
+                        // Only add RPE and Pain if they have values
+                        if (rpeValue !== null) logData.RPE = rpeValue;
+                        if (painValue !== null) logData.Pain = painValue;
+
                         batch.set(newLogRef, logData);
                     }
                 });
@@ -977,15 +1095,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         <div class="mt-3 border-b border-gray-100 dark:border-gray-600 pb-2 last:border-0">
                             <h4 class="font-bold text-gray-700 dark:text-gray-200 text-sm">${exName}</h4>
                             <ul class="text-sm text-gray-600 dark:text-gray-300 mt-1 space-y-1 pl-2">
-                                ${sets.map(set => `
-                                    <li class="flex justify-between">
+                                ${sets.map(set => {
+                                    let metricsStr = '';
+                                    if (set.RPE) metricsStr += `RPE: ${set.RPE}`;
+                                    if (set.Pain) metricsStr += (metricsStr ? ' • ' : '') + `Pain: ${set.Pain}`;
+                                    return `
+                                    <li class="flex justify-between items-start gap-2">
                                         <span>
                                             <strong>Set ${set.SetNumber}:</strong> ${set.Actual_Reps}
                                             <span class="text-gray-500 dark:text-gray-400">@ ${set.Weight_Used || '0'}</span>
                                             ${set.Variation ? `<span class="text-cyan-600 dark:text-cyan-400">(${set.Variation})</span>` : ''}
                                         </span>
+                                        ${metricsStr ? `<span class="text-xs text-yellow-600 dark:text-yellow-400 whitespace-nowrap">${metricsStr}</span>` : ''}
                                     </li>
-                                `).join('')}
+                                `}).join('')}
                             </ul>
                         </div>
                     `;
