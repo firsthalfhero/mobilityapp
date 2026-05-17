@@ -527,14 +527,31 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Initiates the Google Sign-In popup flow.
          */
         function signInWithGoogle() {
+            if (!auth) {
+                showMessage("Firebase not initialized. Please refresh the page.", 'error');
+                return;
+            }
+
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider)
                 .then((result) => {
                     // This will trigger the onAuthStateChanged listener
                     console.log("Sign-in successful for:", result.user.displayName);
                 }).catch((error) => {
-                    console.error("Google Sign-In Error:", error);
-                    showMessage(`Sign-in failed: ${error.message}`, 'error');
+                    console.error("Google Sign-In Error:", error.code, error.message);
+
+                    // Handle specific Firebase auth errors
+                    let userMessage = error.message;
+
+                    if (error.code === 'auth/popup-blocked') {
+                        userMessage = "Sign-in popup was blocked. Please allow popups and try again.";
+                    } else if (error.code === 'auth/cancelled-popup-request') {
+                        userMessage = "Sign-in was cancelled. Please try again.";
+                    } else if (error.message && error.message.includes('missing initial state')) {
+                        userMessage = "Sign-in encountered a connection issue. Please refresh and try again.";
+                    }
+
+                    showMessage(`Sign-in failed: ${userMessage}`, 'error');
                 });
         }
         window.signInWithGoogle = signInWithGoogle;
@@ -568,8 +585,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 auth = getAuth(app);
 
                 // Set explicit persistence to ensure session persists across browser restarts
-                await setPersistence(auth, browserLocalPersistence);
-                console.log("Session persistence configured: browserLocalPersistence");
+                try {
+                    await setPersistence(auth, browserLocalPersistence);
+                    console.log("Session persistence configured: browserLocalPersistence");
+                } catch (persistenceError) {
+                    console.warn("Failed to set persistence, using default:", persistenceError);
+                    // Continue anyway - Firebase will use default persistence
+                }
 
                 onAuthStateChanged(auth, async (user) => {
                     try {
