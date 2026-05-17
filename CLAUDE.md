@@ -101,6 +101,13 @@ users/{userId}/
 - `.netlify/` — Netlify metadata
 - `.gitignore` — ignores `.env`, `js/config.js`, `specs/`
 
+## Versioning
+
+- **Current Version:** v1.1.0
+- **Format:** Semantic versioning (major.minor.patch)
+- **Update Policy:** Increment version in `index.html` footer each time you push major features to `main`
+- **Version Location:** `index.html` footer line ~197 (`<p class="text-xs text-gray-400 dark:text-gray-500">Mobility with Simon • vX.X.X</p>`)
+
 ## Common Changes & Patterns
 
 **Adding a New Field to Exercises:**
