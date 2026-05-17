@@ -19,6 +19,7 @@ body { font-family: 'Inter', sans-serif; }
             appearance: none;
             cursor: grab;
             padding: 0;
+            margin: 8px 0;
         }
 
         input[type="range"]:active {
@@ -41,6 +42,7 @@ body { font-family: 'Inter', sans-serif; }
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
             transition: all 0.15s ease;
             border: 2px solid white;
+            margin-top: -8px;
         }
 
         input[type="range"]::-webkit-slider-thumb:hover {
@@ -64,6 +66,7 @@ body { font-family: 'Inter', sans-serif; }
             border: 2px solid white;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
             transition: all 0.15s ease;
+            margin-top: 0;
         }
 
         input[type="range"]::-moz-range-thumb:hover {
