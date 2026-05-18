@@ -1405,25 +1405,62 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 </form>
             `;
             container.innerHTML = formHtml;
-            
-            const workoutForm = document.getElementById('log-workout-form');
-            if(workoutForm) {
-                workoutForm.addEventListener('submit', handleWorkoutSubmission);
+
+            // Attach form listener with error handling for Safari compatibility
+            try {
+                const workoutForm = document.getElementById('log-workout-form');
+                if (workoutForm) {
+                    // Remove any existing listeners to prevent duplicates
+                    workoutForm.replaceWith(workoutForm.cloneNode(true));
+                    const freshForm = document.getElementById('log-workout-form');
+                    if (freshForm) {
+                        freshForm.addEventListener('submit', handleWorkoutSubmission);
+                        console.log("Log workout form listener attached successfully");
+                    }
+                } else {
+                    console.warn("Log workout form not found when trying to attach listener");
+                }
+            } catch (error) {
+                console.error("Error attaching log workout form listener:", error);
             }
         }
 
         async function handleWorkoutSubmission(event) {
-            event.preventDefault();
+            console.log("Log workout submission started");
+
+            try {
+                event.preventDefault();
+            } catch (error) {
+                console.error("Error preventing default form submission:", error);
+            }
+
             if (!userId) {
                 showMessage("Authentication error. Please reload.", 'error');
+                console.error("No user ID found when submitting workout");
+                return;
+            }
+
+            if (!db) {
+                showMessage("Database not initialized. Please reload.", 'error');
+                console.error("Database not initialized");
                 return;
             }
 
             const form = event.target;
+            if (!form) {
+                console.error("Form element not found in event target");
+                showMessage("Form error. Please try again.", 'error');
+                return;
+            }
+
             const submitBtn = form.querySelector('button[type="submit"]');
-            
+
             // Prevent double submission
-            if (submitBtn) submitBtn.disabled = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            } else {
+                console.warn("Submit button not found");
+            }
 
             const batch = writeBatch(db);
             const logsCollectionRef = collection(db, getPrivateCollectionPath('logs'));
@@ -1499,7 +1536,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 
             } catch (error) {
                 console.error("Error writing batch: ", error);
-                showMessage("Failed to save workout. Check console.", 'error');
+
+                // Provide more specific error messages based on the error type
+                let errorMessage = "Failed to save workout.";
+                if (error.code === 'permission-denied') {
+                    errorMessage = "Permission denied. Please sign in again.";
+                } else if (error.code === 'not-authenticated') {
+                    errorMessage = "You are not signed in. Please reload and sign in.";
+                } else if (error.message) {
+                    errorMessage = `Failed to save workout: ${error.message}`;
+                }
+
+                console.error("Full error details:", error.code, error.message, error);
+                showMessage(errorMessage, 'error');
                 if (submitBtn) submitBtn.disabled = false;
             }
         }
