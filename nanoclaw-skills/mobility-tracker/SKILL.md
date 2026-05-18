@@ -1,6 +1,6 @@
 ---
 name: mobility-tracker
-description: Manage the 'Mobility with Simon' physiotherapy app data — exercises and workout logs stored in Firestore. Triggers when the user asks to view, add, update or delete exercises or workout logs, asks what exercises are in the program, asks about workout history, or wants to log a session. Also triggers for questions like "what did Simon do last Tuesday", "update the hip exercise", "add a new exercise", "how many sets for X".
+description: Manage the 'Mobility with Simon' physiotherapy app data (v2.0.0) — exercises, workouts, sections, and workout logs stored in Firestore. Triggers when the user asks to view, add, update or delete exercises or workout logs, manage workouts and sections, asks what exercises are in a program, asks about workout history, or wants to log a session. Also triggers for questions like "what did Simon do last Tuesday", "update the hip exercise", "add a new exercise", "which workout has X", "create a new workout".
 metadata:
   {
     "openclaw":
@@ -16,14 +16,65 @@ metadata:
   }
 ---
 
-# 🏋️ Mobility Tracker
+# 🏋️ Mobility Tracker (v2.0.0)
 
-Manage exercises and workout logs for the Mobility with Simon app.
-Data lives in Firestore at `users/users/exercises` and `users/users/logs`.
+Manage exercises, workouts, sections, and workout logs for the Mobility with Simon physiotherapy app.
+
+## Data Structure
+
+Firestore paths:
+- `users/users/workouts/{WorkoutID}` — workouts with sections array
+- `users/users/exercises/{ExerciseID}` — exercises (now with `workoutId` and `sectionId`)
+- `users/users/logs/{LogID}` — workout log entries
 
 Script: `/home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py`
 
-ALWAYS run the script. NEVER fabricate exercise names, IDs, or log data.
+ALWAYS run the script. NEVER fabricate exercise names, workout IDs, or log data.
+
+---
+
+## Workouts & Sections
+
+### List all workouts
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py list-workouts
+```
+
+### Get workout details (including sections)
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py get-workout <workoutId>
+```
+
+### Add a new workout
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py add-workout \
+  --name "Home Workout" \
+  --description "Quick routine for home" \
+  --section "Warm-up" \
+  --section "Main Lift" \
+  --section "Cool-down"
+```
+
+First section is required. Additional sections are optional.
+
+### Update a workout
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py update-workout <workoutId> \
+  --name "Updated Workout Name" \
+  --description "New description"
+```
+
+Pass only the fields to change.
+
+### Delete a workout
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py delete-workout <workoutId> --yes
+```
 
 ---
 
@@ -35,13 +86,25 @@ ALWAYS run the script. NEVER fabricate exercise names, IDs, or log data.
 python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py list-exercises
 ```
 
+### Filter exercises by workout
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py list-exercises --workout-id <workoutId>
+```
+
+### Filter exercises by section (within a workout)
+
+```bash
+python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py list-exercises --workout-id <workoutId> --section-id <sectionId>
+```
+
 ### Get full details of one exercise
 
 ```bash
 python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py get-exercise <exerciseId>
 ```
 
-### Add a new exercise
+### Add a new exercise to a workout section
 
 ```bash
 python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py add-exercise \
@@ -49,6 +112,8 @@ python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py add-e
   --focus-area "Hip" \
   --target-sets 3 \
   --target-reps "45 secs" \
+  --workout-id <workoutId> \
+  --section-id <sectionId> \
   --weight "Bodyweight" \
   --notes "Keep spine neutral." \
   --video "https://..."
@@ -104,11 +169,12 @@ python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py add-l
   --reps "12" \
   --weight "Red band" \
   --variation "Half kneeling" \
-  --feeling 7 \
+  --rpe 16 \
+  --pain 2 \
   --comments "Felt strong today."
 ```
 
-`--weight`, `--variation`, `--feeling`, and `--comments` are optional.
+`--weight`, `--variation`, `--rpe` (6-20 Borg scale), `--pain` (1-5 VAS), and `--comments` are optional.
 
 ### Delete a log entry
 
@@ -128,9 +194,13 @@ python3 /home/node/.claude/skills/mobility-tracker/scripts/mobility_cli.py summa
 
 ## Rules
 
+- **Workouts**: v2.0.0 introduces multiple workouts with sections. Always ask which workout if unclear.
+- ALWAYS run `list-workouts` first if the user refers to a workout by name — you need the document ID.
+- ALWAYS run `list-exercises --workout-id <id>` to see exercises in a specific workout.
 - ALWAYS run `list-exercises` first if the user refers to an exercise by name — you need the document ID.
 - NEVER guess or fabricate Firestore document IDs.
 - When the user says "delete X exercise", confirm the name match from `list-exercises` output before deleting.
-- `Subjective_Feeling` is 0–10 (higher = better). If the user gives a feeling out of 10, pass it as `--feeling`.
+- When adding an exercise, you MUST specify `--workout-id` and `--section-id` — fetch these from `list-workouts` and the workout details.
+- RPE (Rating of Perceived Exertion) is 6-20 Borg scale. Pain is 1-5 VAS scale.
 - After any add/update/delete, confirm the outcome to the user.
-- The app is used by one person (Simon) — there is only one set of exercises and logs.
+- The app is used by one person (Simon) — there is one set of workouts, exercises, and logs.
