@@ -992,6 +992,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             });
 
             selector.appendChild(select);
+
+            // Re-render exercises and workout form after setting the dropdown
+            // (programmatically setting select.value doesn't trigger 'change' event)
+            renderExercises();
+            renderWorkoutForm();
         }
         window.renderWorkoutSelector = renderWorkoutSelector;
 
