@@ -53,6 +53,7 @@ def get_db():
 
 EXERCISES_PATH = ("users", "users", "exercises")
 LOGS_PATH = ("users", "users", "logs")
+WORKOUTS_PATH = ("users", "users", "workouts")
 
 
 def exercises_ref(db):
@@ -63,13 +64,64 @@ def logs_ref(db):
     return db.collection(LOGS_PATH[0]).document(LOGS_PATH[1]).collection(LOGS_PATH[2])
 
 
+def workouts_ref(db):
+    return db.collection(WORKOUTS_PATH[0]).document(WORKOUTS_PATH[1]).collection(WORKOUTS_PATH[2])
+
+
+# ---------------------------------------------------------------------------
+# Exercises
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Workouts
+# ---------------------------------------------------------------------------
+
+def cmd_list_workouts(args):
+    db = get_db()
+    docs = workouts_ref(db).order_by("order").stream()
+    items = [(d.id, d.to_dict()) for d in docs]
+    if not items:
+        print("No workouts found.")
+        return
+    print(f"{'#':<4} {'ID':<22} {'Name':<30} {'Description'}")
+    print("-" * 100)
+    for i, (doc_id, w) in enumerate(items, 1):
+        desc = w.get('description', '')
+        print(f"{i:<4} {doc_id:<22} {w.get('name',''):<30} {desc}")
+
+
+def cmd_get_workout(args):
+    db = get_db()
+    doc = workouts_ref(db).document(args.id).get()
+    if not doc.exists:
+        print(f"Workout {args.id} not found.")
+        sys.exit(1)
+    data = doc.to_dict()
+    print(f"ID:          {doc.id}")
+    print(f"Name:        {data.get('name', '')}")
+    print(f"Description: {data.get('description', '')}")
+    print(f"Order:       {data.get('order', '')}")
+    print(f"\nSections:")
+    sections = data.get('sections', [])
+    if not sections:
+        print("  (none)")
+    else:
+        for s in sections:
+            print(f"  - {s.get('id')}: {s.get('name')}")
+
+
 # ---------------------------------------------------------------------------
 # Exercises
 # ---------------------------------------------------------------------------
 
 def cmd_list_exercises(args):
     db = get_db()
-    docs = exercises_ref(db).order_by("order").stream()
+    query = exercises_ref(db).order_by("order")
+    
+    if args.workout_id:
+        query = query.where("workoutId", "==", args.workout_id)
+    
+    docs = query.stream()
     items = [(d.id, d.to_dict()) for d in docs]
     if not items:
         print("No exercises found.")
@@ -94,6 +146,22 @@ def cmd_get_exercise(args):
 
 def cmd_add_exercise(args):
     db = get_db()
+    
+    # Validate workout exists
+    workout_doc = workouts_ref(db).document(args.workout_id).get()
+    if not workout_doc.exists:
+        print(f"ERROR: Workout '{args.workout_id}' not found.")
+        sys.exit(1)
+    
+    # Validate section exists within the workout
+    workout_data = workout_doc.to_dict()
+    sections = workout_data.get("sections", [])
+    section_ids = [s.get("id") for s in sections]
+    if args.section_id not in section_ids:
+        print(f"ERROR: Section '{args.section_id}' not found in workout '{args.workout_id}'.")
+        print(f"Available sections: {', '.join(section_ids) if section_ids else 'none'}")
+        sys.exit(1)
+    
     # Determine next order value
     docs = list(exercises_ref(db).order_by("order", direction="DESCENDING").limit(1).stream())
     next_order = (docs[0].to_dict().get("order", 0) + 1) if docs else 0
@@ -107,11 +175,15 @@ def cmd_add_exercise(args):
         "Video_Link": args.video or "",
         "Physio_Notes": args.notes or "",
         "order": next_order,
+        "workoutId": args.workout_id,
+        "sectionId": args.section_id,
     }
     _, ref = exercises_ref(db).add(data)
     print(f"Exercise added: {ref.id}")
     print(f"  Name: {data['Name']}")
     print(f"  Focus Area: {data['Focus_Area']}")
+    print(f"  Workout: {args.workout_id}")
+    print(f"  Section: {args.section_id}")
 
 
 def cmd_update_exercise(args):
@@ -175,10 +247,6 @@ def cmd_delete_exercise(args):
     print(f"Deleted exercise '{name}' and {count} related log(s).")
 
 
-# ---------------------------------------------------------------------------
-# Logs
-# ---------------------------------------------------------------------------
-
 def fmt_date(ts):
     if ts is None:
         return ""
@@ -187,6 +255,10 @@ def fmt_date(ts):
     except Exception:
         return str(ts)
 
+
+# ---------------------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------------------
 
 def cmd_list_logs(args):
     db = get_db()
@@ -295,8 +367,15 @@ def main():
     parser = argparse.ArgumentParser(description="Mobility Tracker Firestore CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # workouts
+    sub.add_parser("list-workouts", help="List all workouts")
+    
+    p = sub.add_parser("get-workout", help="Show full details of one workout")
+    p.add_argument("id", help="Workout document ID")
+    
     # exercises
-    sub.add_parser("list-exercises", help="List all exercises")
+    p = sub.add_parser("list-exercises", help="List all exercises")
+    p.add_argument("--workout-id", dest="workout_id", help="Filter by workout ID")
 
     p = sub.add_parser("get-exercise", help="Show full details of one exercise")
     p.add_argument("id", help="Exercise document ID")
@@ -306,6 +385,8 @@ def main():
     p.add_argument("--focus-area", dest="focus_area", required=True)
     p.add_argument("--target-sets", dest="target_sets", required=True)
     p.add_argument("--target-reps", dest="target_reps", required=True)
+    p.add_argument("--workout-id", dest="workout_id", required=True, help="Workout ID (use list-workouts to find)")
+    p.add_argument("--section-id", dest="section_id", required=True, help="Section ID within the workout")
     p.add_argument("--weight", help="Weight_Used_Initial")
     p.add_argument("--video", help="Video_Link URL")
     p.add_argument("--notes", help="Physio_Notes")
@@ -347,6 +428,8 @@ def main():
     args = parser.parse_args()
 
     commands = {
+        "list-workouts": cmd_list_workouts,
+        "get-workout": cmd_get_workout,
         "list-exercises": cmd_list_exercises,
         "get-exercise": cmd_get_exercise,
         "add-exercise": cmd_add_exercise,

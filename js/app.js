@@ -1642,13 +1642,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 `;
             }).join('');
         }
-        
-        // Add event listener for the log form submission
-        document.addEventListener('DOMContentLoaded', () => {
-             document.getElementById('add-exercise-form').addEventListener('submit', handleAddExerciseSubmission);
-             // Prevent duplicate Firebase initialization
-             if (!isFirebaseInitialized) {
-                 isFirebaseInitialized = true;
-                 initializeFirebase();
-             }
-        });
+
+        // Register form event listeners immediately (DOM is already loaded before this script runs)
+        document.getElementById('add-exercise-form').addEventListener('submit', handleAddExerciseSubmission);
+
+        // Prevent duplicate Firebase initialization
+        if (!isFirebaseInitialized) {
+            isFirebaseInitialized = true;
+            initializeFirebase();
+        }
