@@ -1284,6 +1284,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', newSetHtml);
+
+            // Setup slider listeners for the newly added set
+            const newSetGroup = container.querySelector(`.set-group:last-child`);
+            if (newSetGroup) setupSliderListeners(newSetGroup);
         }
         window.addSet = addSet;
 
@@ -1416,6 +1420,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     if (freshForm) {
                         freshForm.addEventListener('submit', handleWorkoutSubmission);
                         console.log("Log workout form listener attached successfully");
+
+                        // Setup slider listeners for all initially rendered sets
+                        const setGroups = freshForm.querySelectorAll('.set-group');
+                        setGroups.forEach(setGroup => setupSliderListeners(setGroup));
                     }
                 } else {
                     console.warn("Log workout form not found when trying to attach listener");
@@ -1490,8 +1498,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         const rpeInput = setGroup.querySelector(`input[name="rpe_${exId}"]`);
                         const painInput = setGroup.querySelector(`input[name="pain_${exId}"]`);
 
-                        const rpeValue = rpeInput && rpeInput.value ? parseInt(rpeInput.value, 10) : null;
-                        const painValue = painInput && painInput.value ? parseInt(painInput.value, 10) : null;
+                        // Check if sliders have been interacted with (value > 0, since min is 6 for RPE and 1 for Pain)
+                        const rpeValue = rpeInput ? parseInt(rpeInput.value, 10) : null;
+                        const painValue = painInput ? parseInt(painInput.value, 10) : null;
 
                         const logData = {
                             Exercise_ID: exId,
