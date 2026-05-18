@@ -589,6 +589,182 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
         window.handleNewWorkoutSubmission = handleNewWorkoutSubmission;
 
+        /**
+         * Opens the edit workout form for the current workout.
+         */
+        function openEditWorkoutForm() {
+            if (!currentWorkoutId) {
+                showMessage("No workout selected.", 'error');
+                return;
+            }
+
+            const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
+            if (!currentWorkout) {
+                showMessage("Workout not found.", 'error');
+                return;
+            }
+
+            const form = document.getElementById('edit-workout-form');
+            form.reset();
+
+            // Populate fields
+            document.getElementById('edit-workout-name').value = currentWorkout.name || '';
+            document.getElementById('edit-workout-description').value = currentWorkout.description || '';
+
+            // Store current workout ID for submission
+            form.setAttribute('data-workout-id', currentWorkoutId);
+
+            // Render sections
+            renderSectionsList();
+
+            window.switchTab('edit-workout-tab');
+        }
+        window.openEditWorkoutForm = openEditWorkoutForm;
+
+        /**
+         * Renders the sections list in the edit workout form.
+         */
+        function renderSectionsList() {
+            const container = document.getElementById('sections-list');
+            if (!container) return;
+
+            const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
+            if (!currentWorkout || !currentWorkout.sections) {
+                container.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-sm">No sections.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            currentWorkout.sections.forEach((section, index) => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg';
+                sectionDiv.setAttribute('data-section-id', section.id);
+
+                sectionDiv.innerHTML = `
+                    <div class="flex-1">
+                        <input type="text" class="section-name-input block w-full rounded-md bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 p-2 text-sm" value="${section.name}" onchange="handleRenameSection('${currentWorkoutId}', '${section.id}', this.value)">
+                    </div>
+                    <button type="button" class="ml-2 text-red-500 hover:text-red-700 font-bold" onclick="handleDeleteSection('${currentWorkoutId}', '${section.id}')">
+                        ✕
+                    </button>
+                `;
+
+                container.appendChild(sectionDiv);
+            });
+        }
+        window.renderSectionsList = renderSectionsList;
+
+        /**
+         * Handles adding a new section to the current workout.
+         */
+        function handleAddSection() {
+            const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
+            if (!currentWorkout) return;
+
+            const sectionName = prompt("Enter section name:", "New Section");
+            if (!sectionName || sectionName.trim() === "") return;
+
+            const newSection = {
+                id: `section-${Date.now()}`,
+                name: sectionName.trim(),
+                order: currentWorkout.sections.length
+            };
+
+            currentWorkout.sections.push(newSection);
+            renderSectionsList();
+        }
+        window.handleAddSection = handleAddSection;
+
+        /**
+         * Handles renaming a section.
+         */
+        function handleRenameSection(workoutId, sectionId, newName) {
+            if (!newName || newName.trim() === "") {
+                showMessage("Section name cannot be empty.", 'error');
+                renderSectionsList();
+                return;
+            }
+
+            const workout = workouts.find(w => w.id === workoutId);
+            if (!workout) return;
+
+            const section = workout.sections.find(s => s.id === sectionId);
+            if (section) {
+                section.name = newName.trim();
+            }
+        }
+        window.handleRenameSection = handleRenameSection;
+
+        /**
+         * Handles deleting a section from a workout.
+         */
+        function handleDeleteSection(workoutId, sectionId) {
+            const workout = workouts.find(w => w.id === workoutId);
+            if (!workout) return;
+
+            const section = workout.sections.find(s => s.id === sectionId);
+            if (!section) return;
+
+            if (confirm(`Delete section "${section.name}"? Any exercises in this section will not be deleted, but will lose their section assignment.`)) {
+                workout.sections = workout.sections.filter(s => s.id !== sectionId);
+                renderSectionsList();
+            }
+        }
+        window.handleDeleteSection = handleDeleteSection;
+
+        /**
+         * Handles the submission of the edit workout form.
+         */
+        async function handleEditWorkoutSubmission(event) {
+            event.preventDefault();
+
+            if (!userId) {
+                showMessage("Authentication error. Please reload.", 'error');
+                return;
+            }
+
+            const form = event.target;
+            const workoutId = form.getAttribute('data-workout-id');
+            const workoutName = document.getElementById('edit-workout-name').value.trim();
+            const description = document.getElementById('edit-workout-description').value.trim();
+
+            if (!workoutName) {
+                showMessage("Workout name is required.", 'error');
+                return;
+            }
+
+            const currentWorkout = workouts.find(w => w.id === workoutId);
+            if (!currentWorkout) {
+                showMessage("Workout not found.", 'error');
+                return;
+            }
+
+            if (currentWorkout.sections.length === 0) {
+                showMessage("Workout must have at least one section.", 'error');
+                return;
+            }
+
+            try {
+                const workoutData = {
+                    name: workoutName,
+                    description: description,
+                    sections: currentWorkout.sections
+                };
+
+                const workoutsPath = getPrivateCollectionPath('workouts');
+                const docRef = doc(db, workoutsPath, workoutId);
+                await updateDoc(docRef, workoutData);
+
+                showMessage(`"${workoutName}" updated successfully!`, 'success');
+                window.switchTab('my-program');
+            } catch (error) {
+                console.error("Error updating workout:", error);
+                showMessage("Failed to update workout. Check console.", 'error');
+            }
+        }
+        window.handleEditWorkoutSubmission = handleEditWorkoutSubmission;
+
         // ...
 
         /**
