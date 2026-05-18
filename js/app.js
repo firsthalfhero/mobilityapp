@@ -534,6 +534,61 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         // Expose globally
         window.openAddExerciseForm = openAddExerciseForm;
 
+        /**
+         * Opens the new workout creation form.
+         */
+        function openNewWorkoutForm() {
+            const form = document.getElementById('new-workout-form');
+            form.reset();
+            window.switchTab('new-workout-tab');
+        }
+        window.openNewWorkoutForm = openNewWorkoutForm;
+
+        /**
+         * Handles the submission of the new workout form.
+         * @param {Event} event - The form submit event.
+         */
+        async function handleNewWorkoutSubmission(event) {
+            event.preventDefault();
+
+            if (!userId) {
+                showMessage("Authentication error. Please reload.", 'error');
+                return;
+            }
+
+            const form = event.target;
+            const workoutName = form['WorkoutName'].value.trim();
+            const description = form['Description'].value.trim();
+
+            if (!workoutName) {
+                showMessage("Workout name is required.", 'error');
+                return;
+            }
+
+            try {
+                const workoutData = {
+                    name: workoutName,
+                    description: description,
+                    order: workouts.length, // Add to end
+                    sections: [
+                        { id: `section-${Date.now()}`, name: 'Exercises', order: 0 }
+                    ]
+                };
+
+                const workoutsPath = getPrivateCollectionPath('workouts');
+                const docRef = await addDoc(collection(db, workoutsPath), workoutData);
+                console.log("New workout created with ID:", docRef.id);
+
+                showMessage(`"${workoutName}" workout created successfully!`, 'success');
+                form.reset();
+                window.switchTab('my-program');
+            } catch (error) {
+                console.error("Error creating workout:", error);
+                showMessage("Failed to create workout. Check console.", 'error');
+            }
+        }
+        window.handleNewWorkoutSubmission = handleNewWorkoutSubmission;
+
         // ...
 
         /**
