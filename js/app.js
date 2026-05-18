@@ -514,7 +514,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     deleteBtn.type = 'button';
                     deleteBtn.className = 'w-full mt-4 bg-red-100 hover:bg-red-200 text-red-600 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800 font-bold py-3 rounded-xl transition-colors';
                     deleteBtn.textContent = 'Delete Exercise';
-                    deleteBtn.onclick = handleDeleteExercise; // Reuse existing delete handler
+                    // Use addEventListener for better compatibility (especially Safari)
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        handleDeleteExercise();
+                    });
                     form.appendChild(deleteBtn);
                 }
             } else {
@@ -1648,8 +1652,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             }).join('');
         }
 
-        // Register form event listeners immediately (DOM is already loaded before this script runs)
-        document.getElementById('add-exercise-form').addEventListener('submit', handleAddExerciseSubmission);
+        // Register form event listeners with fallback for Safari compatibility
+        try {
+            const addExerciseForm = document.getElementById('add-exercise-form');
+            if (addExerciseForm) {
+                addExerciseForm.addEventListener('submit', handleAddExerciseSubmission);
+                console.log("Add exercise form listener registered");
+            } else {
+                console.warn("Add exercise form not found when trying to attach listener");
+            }
+        } catch (error) {
+            console.error("Error attaching form listener:", error);
+        }
 
         // Prevent duplicate Firebase initialization
         if (!isFirebaseInitialized) {
