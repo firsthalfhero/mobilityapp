@@ -103,10 +103,14 @@ users/{userId}/
 
 ## Versioning
 
-- **Current Version:** v1.1.0
+- **Current Version:** v2.0.0
 - **Format:** Semantic versioning (major.minor.patch)
-- **Update Policy:** Increment version in `index.html` footer each time you push major features to `main`
+- **Update Policy:** **ALWAYS increment the patch version (X.X.Z) in `index.html` footer each time you commit to `master`**
+  - Major (X.0.0) = major features or breaking changes (e.g., multi-workout support)
+  - Minor (X.Y.0) = new features or significant improvements
+  - Patch (X.Y.Z) = bug fixes or small changes
 - **Version Location:** `index.html` footer line ~197 (`<p class="text-xs text-gray-400 dark:text-gray-500">Mobility with Simon • vX.X.X</p>`)
+- **Before Committing:** Always check the current version in `index.html` and increment the patch number as part of your commit
 
 ## Common Changes & Patterns
 
