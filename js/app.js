@@ -1288,8 +1288,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             const container = document.getElementById('log-workout-tab');
             if (!container) return;
 
-            if (exercises.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center mt-8">No exercises available. Add some to your program first!</p>';
+            // Filter exercises for current workout
+            const filteredExercises = exercises.filter(ex => ex.workoutId === currentWorkoutId);
+
+            if (filteredExercises.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center mt-8">No exercises in this workout. Add some to your program first!</p>';
+                return;
+            }
+
+            // Get the current workout to access sections
+            const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
+            if (!currentWorkout || !currentWorkout.sections) {
+                container.innerHTML = '<p class="text-gray-500 text-center mt-8">Workout not found.</p>';
                 return;
             }
 
@@ -1299,8 +1309,27 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 <form id="log-workout-form">
             `;
 
-            // Flattened list, no categories
-            exercises.forEach(exercise => {
+            // Group exercises by section
+            const groupedBySection = {};
+            currentWorkout.sections.forEach(section => {
+                groupedBySection[section.id] = [];
+            });
+
+            filteredExercises.forEach(exercise => {
+                if (groupedBySection[exercise.sectionId]) {
+                    groupedBySection[exercise.sectionId].push(exercise);
+                }
+            });
+
+            // Render sections and exercises
+            currentWorkout.sections.forEach(section => {
+                const sectionExercises = groupedBySection[section.id] || [];
+
+                if (sectionExercises.length === 0) return; // Skip empty sections
+
+                formHtml += `<h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest mt-6 mb-3">${section.name}</h3>`;
+
+                sectionExercises.forEach(exercise => {
                 const exId = exercise.Exercise_ID;
                 formHtml += `
                     <div class="bg-white dark:bg-gray-700 p-4 rounded-xl shadow-md mb-4 border-l-4 border-gray-200 dark:border-gray-600">
@@ -1357,6 +1386,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         <button type="button" onclick="addSet('${exId}')" class="text-sm text-cyan-600 dark:text-cyan-400 hover:underline mt-3 font-medium">+ Add Set</button>
                     </div>
                 `;
+                });
             });
 
             formHtml += `
@@ -1391,7 +1421,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
             let logsAttempted = 0;
             const workoutDate = new Date();
 
-            exercises.forEach(exercise => {
+            // Only process exercises from the current workout
+            const filteredExercises = exercises.filter(ex => ex.workoutId === currentWorkoutId);
+            filteredExercises.forEach(exercise => {
                 const exId = exercise.Exercise_ID;
                 const setsContainer = document.getElementById(`sets-container_${exId}`);
                 if (!setsContainer) return;
