@@ -227,9 +227,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * @param {string} exerciseId 
          */
         function handleEditExercise(exerciseId) {
+            console.log(`=== Edit Exercise CTA: ${exerciseId} ===`);
             const exercise = exercises.find(e => e.Exercise_ID === exerciseId);
             if (exercise) {
+                console.log("Opening exercise for edit:", exercise.Name);
                 openAddExerciseForm(exercise);
+            } else {
+                console.error(`Exercise not found: ${exerciseId}`);
             }
         }
         window.handleEditExercise = handleEditExercise;
@@ -299,11 +303,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * @param {string} tabId - The ID of the tab content to show.
          */
         function switchTab(tabId) {
+            console.log(`=== Switch Tab CTA: ${tabId} ===`);
             // Hide all tab content
             document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
             // Show the selected tab content
             const activeContent = document.getElementById(tabId);
-            if (activeContent) activeContent.style.display = 'block';
+            if (activeContent) {
+                activeContent.style.display = 'block';
+                console.log(`Tab ${tabId} displayed successfully`);
+            } else {
+                console.warn(`Tab ${tabId} not found in DOM`);
+            }
 
             // Update active tab styles
             document.querySelectorAll('.tab-header button').forEach(button => {
@@ -320,12 +330,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Populates the Log Form with the selected exercise details and switches view.
          */
         function openLogForm() {
+            console.log("=== Open Log Form CTA ===");
             if (!currentExerciseId) {
+                console.warn("No exercise selected when opening log form");
                 showMessage("Please select an exercise first.", 'error');
                 return;
             }
+            console.log(`Loading exercise: ${currentExerciseId}`);
             const exercise = exercises.find(e => e.Exercise_ID === currentExerciseId);
-            if (!exercise) return;
+            if (!exercise) {
+                console.error(`Exercise not found: ${currentExerciseId}`);
+                return;
+            }
+            console.log("Exercise loaded:", exercise.Name);
 
             document.getElementById('log-exercise-name').textContent = exercise.Name;
             document.getElementById('log-form').reset();
@@ -345,7 +362,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Handles the deletion of the currently viewed exercise and all its logs.
          */
         async function handleDeleteExercise() {
+            console.log(`=== Delete Exercise CTA: ${currentExerciseId} ===`);
             if (!currentExerciseId) {
+                console.warn("No exercise selected when trying to delete");
                 showMessage("No exercise selected.", 'error');
                 return;
             }
@@ -466,6 +485,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Switches view to the Add/Edit Exercise form.
          */
         function openAddExerciseForm(exerciseToEdit = null) {
+            console.log(`=== Open Add/Edit Exercise CTA ===`, exerciseToEdit ? `Editing: ${exerciseToEdit.Exercise_ID}` : "Creating new");
             const form = document.getElementById('add-exercise-form');
             const title = document.querySelector('#add-exercise-tab h2');
             const submitBtn = form.querySelector('button[type="submit"]');
@@ -542,8 +562,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Opens the new workout creation form.
          */
         function openNewWorkoutForm() {
+            console.log("=== Open New Workout CTA ===");
             const form = document.getElementById('new-workout-form');
-            form.reset();
+            if (form) {
+                form.reset();
+                console.log("New workout form reset");
+            } else {
+                console.warn("New workout form not found");
+            }
             window.switchTab('new-workout-tab');
         }
         window.openNewWorkoutForm = openNewWorkoutForm;
@@ -663,11 +689,19 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Handles adding a new section to the current workout.
          */
         function handleAddSection() {
+            console.log("=== Add Section CTA ===");
             const currentWorkout = workouts.find(w => w.id === currentWorkoutId);
-            if (!currentWorkout) return;
+            if (!currentWorkout) {
+                console.error(`Current workout not found: ${currentWorkoutId}`);
+                return;
+            }
 
             const sectionName = prompt("Enter section name:", "New Section");
-            if (!sectionName || sectionName.trim() === "") return;
+            if (!sectionName || sectionName.trim() === "") {
+                console.log("Section name cancelled or empty");
+                return;
+            }
+            console.log("Creating new section:", sectionName);
 
             const newSection = {
                 id: `section-${Date.now()}`,
@@ -846,11 +880,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Initiates the Google Sign-In popup flow.
          */
         function signInWithGoogle() {
+            console.log("=== Sign In CTA clicked ===");
             if (!auth) {
+                console.error("Auth not initialized when signing in");
                 showMessage("Firebase not initialized. Please refresh the page.", 'error');
                 return;
             }
 
+            console.log("Starting Google sign-in flow");
             const provider = new GoogleAuthProvider();
             signInWithPopup(auth, provider)
                 .then((result) => {
@@ -879,7 +916,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
          * Signs the current user out.
          */
         function signOutUser() {
+            console.log("=== Sign Out CTA clicked ===");
             if (confirm("Are you sure you want to sign out?")) {
+                console.log("User confirmed sign out");
                 signOut(auth).catch((error) => {
                     console.error("Sign-Out Error:", error);
                     showMessage(`Sign-out failed: ${error.message}`, 'error');
@@ -1190,7 +1229,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
 
         function toggleSetDetails(button) {
-            event.preventDefault();
+            console.log("=== Toggle Set Details CTA ===");
+            try {
+                event.preventDefault();
+            } catch (e) {
+                console.warn("Could not prevent default event");
+            }
             const setGroup = button.closest('.set-group');
             if (!setGroup) return;
 
@@ -1248,9 +1292,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         }
 
         function addSet(exerciseId) {
-            event.preventDefault();
+            console.log(`=== Add Set CTA for exercise: ${exerciseId} ===`);
+            try {
+                event.preventDefault();
+            } catch (e) {
+                console.warn("Could not prevent default event");
+            }
             const container = document.getElementById(`sets-container_${exerciseId}`);
-            if (!container) return;
+            if (!container) {
+                console.error(`Sets container not found: sets-container_${exerciseId}`);
+                return;
+            }
+            console.log("Adding new set to exercise");
 
             // Count actual set groups (not headers)
             const setCount = container.querySelectorAll('.set-group').length + 1;
