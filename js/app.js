@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, orderBy, limit, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
@@ -879,6 +879,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
         /**
          * Initiates the Google Sign-In popup flow.
          */
+        function isMobileBrowser() {
+            return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        }
+
         function signInWithGoogle() {
             console.log("=== Sign In CTA clicked ===");
             if (!auth) {
@@ -887,28 +891,32 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 return;
             }
 
-            console.log("Starting Google sign-in flow");
             const provider = new GoogleAuthProvider();
-            signInWithPopup(auth, provider)
-                .then((result) => {
-                    // This will trigger the onAuthStateChanged listener
-                    console.log("Sign-in successful for:", result.user.displayName);
-                }).catch((error) => {
-                    console.error("Google Sign-In Error:", error.code, error.message);
 
-                    // Handle specific Firebase auth errors
-                    let userMessage = error.message;
-
-                    if (error.code === 'auth/popup-blocked') {
-                        userMessage = "Sign-in popup was blocked. Please allow popups and try again.";
-                    } else if (error.code === 'auth/cancelled-popup-request') {
-                        userMessage = "Sign-in was cancelled. Please try again.";
-                    } else if (error.message && error.message.includes('missing initial state')) {
-                        userMessage = "Sign-in encountered a connection issue. Please refresh and try again.";
-                    }
-
-                    showMessage(`Sign-in failed: ${userMessage}`, 'error');
+            if (isMobileBrowser()) {
+                console.log("Mobile detected — using redirect sign-in");
+                signInWithRedirect(auth, provider).catch((error) => {
+                    console.error("Google Sign-In Redirect Error:", error.code, error.message);
+                    showMessage(`Sign-in failed: ${error.message}`, 'error');
                 });
+            } else {
+                console.log("Desktop detected — using popup sign-in");
+                signInWithPopup(auth, provider)
+                    .then((result) => {
+                        console.log("Sign-in successful for:", result.user.displayName);
+                    }).catch((error) => {
+                        console.error("Google Sign-In Error:", error.code, error.message);
+
+                        let userMessage = error.message;
+                        if (error.code === 'auth/popup-blocked') {
+                            userMessage = "Sign-in popup was blocked. Please allow popups and try again.";
+                        } else if (error.code === 'auth/cancelled-popup-request') {
+                            userMessage = "Sign-in was cancelled. Please try again.";
+                        }
+
+                        showMessage(`Sign-in failed: ${userMessage}`, 'error');
+                    });
+            }
         }
         window.signInWithGoogle = signInWithGoogle;
 
@@ -949,6 +957,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                 } catch (persistenceError) {
                     console.warn("Failed to set persistence, using default:", persistenceError);
                     // Continue anyway - Firebase will use default persistence
+                }
+
+                // Handle result from mobile redirect sign-in flow
+                try {
+                    const redirectResult = await getRedirectResult(auth);
+                    if (redirectResult?.user) {
+                        console.log("Redirect sign-in completed for:", redirectResult.user.displayName);
+                    }
+                } catch (redirectError) {
+                    console.error("Redirect sign-in error:", redirectError.code, redirectError.message);
+                    showMessage(`Sign-in failed: ${redirectError.message}`, 'error');
                 }
 
                 onAuthStateChanged(auth, async (user) => {
