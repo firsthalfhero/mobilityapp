@@ -959,17 +959,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                     // Continue anyway - Firebase will use default persistence
                 }
 
-                // Handle result from mobile redirect sign-in flow
-                try {
-                    const redirectResult = await getRedirectResult(auth);
-                    if (redirectResult?.user) {
-                        console.log("Redirect sign-in completed for:", redirectResult.user.displayName);
-                    }
-                } catch (redirectError) {
-                    console.error("Redirect sign-in error:", redirectError.code, redirectError.message);
-                    showMessage(`Sign-in failed: ${redirectError.message}`, 'error');
-                }
-
                 onAuthStateChanged(auth, async (user) => {
                     try {
                         const signInView = document.getElementById('sign-in-view');
@@ -1013,6 +1002,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
                         showMessage("An error occurred. Please refresh the page.", 'error');
                     }
                 });
+
+                // Non-blocking: catch errors from the redirect sign-in flow on mobile.
+                // onAuthStateChanged handles the successful redirect auth state automatically.
+                if (isMobileBrowser()) {
+                    getRedirectResult(auth).catch((error) => {
+                        if (error.code !== 'auth/null-user') {
+                            console.error("Redirect sign-in error:", error.code, error.message);
+                            showMessage(`Sign-in failed: ${error.message}`, 'error');
+                        }
+                    });
+                }
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
